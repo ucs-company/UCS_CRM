@@ -5,14 +5,12 @@ import Dashboard from './pages/Dashboard'
 import MyLeads from './pages/MyLeads'
 import CallLogs from './pages/CallLogs'
 import MyDonors from './pages/MyDonors'
-import MyTarget from './pages/MyTarget'
 
 const NAV = [
-  { id: 'dashboard', label: 'Home', icon: 'dashboard' },
+  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'leads', label: 'Leads', icon: 'person_add' },
   { id: 'my-donors', label: 'Donors', icon: 'diversity_3' },
   { id: 'call-logs', label: 'Logs', icon: 'call_log' },
-  { id: 'my-target', label: 'Target', icon: 'track_changes' },
 ]
 
 function Sidebar({ active, setActive }) {
@@ -109,8 +107,6 @@ export default function FROPanel() {
             <MyDonors />
           ) : active === 'call-logs' ? (
             <CallLogs />
-          ) : active === 'my-target' ? (
-            <MyTarget />
           ) : (
             <Dashboard />
           )}

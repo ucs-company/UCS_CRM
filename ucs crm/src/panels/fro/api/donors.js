@@ -37,6 +37,10 @@ export async function getMyDashboard() {
   return api('/fro/dashboard', { _prefix: 'ucs' })
 }
 
+export async function requestMoreData(message) {
+  return api('/fro/request-data', { method: 'POST', body: JSON.stringify({ message }), _prefix: 'ucs' })
+}
+
 export async function markDonorSeen(donorId, ngoId) {
   const body = ngoId ? JSON.stringify({ ngo_id: ngoId }) : '{}'
   return api(`/fro/donors/${donorId}/mark-seen`, { method: 'PUT', body, _prefix: 'ucs' })
