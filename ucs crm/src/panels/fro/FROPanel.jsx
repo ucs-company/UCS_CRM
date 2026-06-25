@@ -2,15 +2,15 @@ import { useState, useEffect, useRef } from 'react'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
 import Dashboard from './pages/Dashboard'
-import CallLogs from './pages/CallLogs'
 import MyDonors from './pages/MyDonors'
+import Donors from './pages/Donors'
 import Scheduled from './pages/Scheduled'
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'scheduled', label: 'Scheduled / Callback', icon: 'calendar_month' },
-  { id: 'my-donors', label: 'Donors', icon: 'diversity_3' },
-  { id: 'call-logs', label: 'Logs', icon: 'call_log' },
+  { id: 'my-leads', label: 'My Leads', icon: 'group' },
+  { id: 'donors', label: 'Donors', icon: 'card_giftcard' },
 ]
 
 function Sidebar({ active, setActive }) {
@@ -99,14 +99,12 @@ export default function FROPanel() {
           </div>
         </header>
         <div className="content-body">
-          {active === 'dashboard' ? (
-            <Dashboard />
-          ) : active === 'scheduled' ? (
+          {active === 'scheduled' ? (
             <Scheduled />
-          ) : active === 'my-donors' ? (
+          ) : active === 'my-leads' ? (
             <MyDonors />
-          ) : active === 'call-logs' ? (
-            <CallLogs />
+          ) : active === 'donors' ? (
+            <Donors />
           ) : (
             <Dashboard />
           )}
