@@ -22,6 +22,13 @@ export async function scheduleContact(donorId, data) {
   return api(`/fro/donors/${donorId}/schedule`, { method: 'POST', body: JSON.stringify(data), _prefix: 'ucs' })
 }
 
+export async function getDonorDonations(donorId, ngoId, yearFilter) {
+  const params = new URLSearchParams();
+  if (ngoId) params.set('ngo_id', ngoId);
+  if (yearFilter) params.set('year', yearFilter);
+  return api(`/fro/donors/${donorId}/donations?${params}`, { _prefix: 'ucs' })
+}
+
 export async function uploadPaymentScreenshot(fileBase64, mimeType) {
   return api('/fro/upload-payment-screenshot', { method: 'POST', body: JSON.stringify({ file_base64: fileBase64, mime_type: mimeType }), _prefix: 'ucs' })
 }

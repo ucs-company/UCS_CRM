@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getMyDonors, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot } from '../api/donors';
+import { getMyDonors, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot, getDonorDonations } from '../api/donors';
 
 const NOT_CONNECTED = [
   { id: 'busy', label: 'Busy' }, { id: 'ringing', label: 'Ringing' },
@@ -50,6 +50,10 @@ export default function MyDonors() {
   const [leadDob, setLeadDob] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const [showDonationModal, setShowDonationModal] = useState(false);
+  const [donations, setDonations] = useState([]);
+  const [donationYear, setDonationYear] = useState('this_year');
+  const [donationLoading, setDonationLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -103,6 +107,30 @@ export default function MyDonors() {
       setLeadScreenshot({ base64, mime: file.type });
     };
     reader.readAsDataURL(file);
+  };
+
+  const loadDonations = async (year) => {
+    if (!donor) return;
+    setDonationLoading(true);
+    try {
+      const data = await getDonorDonations(donor.id, donor.ngo_id, year);
+      setDonations(data);
+    } catch (err) {
+      setDonations([]);
+    } finally {
+      setDonationLoading(false);
+    }
+  };
+
+  const openDonationModal = () => {
+    setShowDonationModal(true);
+    setDonationYear('this_year');
+    loadDonations('this_year');
+  };
+
+  const handleDonationYearChange = (year) => {
+    setDonationYear(year);
+    loadDonations(year);
   };
 
   const handleSave = async () => {
@@ -172,21 +200,17 @@ export default function MyDonors() {
         <div className="detail-left" style={{ padding: 12 }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             {/* Profile header */}
-            <div style={{ textAlign: 'center', paddingBottom: 12, borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
-              <div className="detail-avatar">{initials(donor.donor_name)}</div>
-              <div className="detail-name">
-                {donor.donor_name}
+            <div style={{ paddingBottom: 10, borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
+              <div className="detail-phone" style={{ fontSize:13, marginBottom:2 }}>{donor.donor_mobile || '—'}</div>
+              <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                 {donor.is_new && (
-                  <span style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 4, background: '#16a34a', color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: .5, verticalAlign: 'middle' }}>NEW</span>
+                  <span style={{ padding: '1px 6px', borderRadius: 4, background: '#16a34a', color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: .5 }}>NEW</span>
+                )}
+                {statusPill(donor.status || 'pending')}
+                {donor.ngo_name && (
+                  <span style={{ background: '#e0e7ff', color: '#4338ca', padding: '1px 7px', borderRadius: 999, fontSize: 8, fontWeight: 700 }}>{donor.ngo_name}</span>
                 )}
               </div>
-              <div className="detail-phone">{donor.donor_mobile || '—'}</div>
-              {statusPill(donor.status || 'pending')}
-              {donor.ngo_name && (
-                <div style={{ marginTop: 6 }}>
-                  <span style={{ background: '#e0e7ff', color: '#4338ca', padding: '1px 7px', borderRadius: 999, fontSize: 8, fontWeight: 700 }}>{donor.ngo_name}</span>
-                </div>
-              )}
             </div>
 
             {/* Fields — plain, no container */}
@@ -212,9 +236,9 @@ export default function MyDonors() {
                   <label>Project</label>
                   <div>{donor.donor_project || '—'}</div>
                 </div>
-                <div className="fld">
+                <div className="fld" style={{ cursor:'pointer' }} onClick={openDonationModal}>
                   <label>Donations</label>
-                  <div>{donor.donation_count || 0} time{donor.donation_count !== 1 ? 's' : ''} (₹{Number(donor.total_donated || 0).toLocaleString('en-IN')})</div>
+                  <div style={{ color:'var(--sage)', fontWeight:600 }}>{donor.donation_count || 0} time{donor.donation_count !== 1 ? 's' : ''} (₹{Number(donor.total_donated || 0).toLocaleString('en-IN')})</div>
                 </div>
               </div>
               {donor.donor_address && (
@@ -309,8 +333,25 @@ export default function MyDonors() {
                   <div className="detail-field-row">
                     <div className="fld">
                       <label>Screenshot</label>
-                      <input type="file" accept="image/*" onChange={handleScreenshotChange}
-                        style={{ fontSize:10, fontFamily:'inherit' }} />
+                      <div onClick={() => document.getElementById('ss-input').click()}
+                        style={{ border:'1px dashed var(--line)', borderRadius:6, padding:'10px 8px', textAlign:'center', cursor:'pointer', fontSize:10, color:'var(--ink-soft)', transition:'all .12s' }}
+                        onMouseOver={e => e.currentTarget.style.borderColor='var(--sage)'}
+                        onMouseOut={e => e.currentTarget.style.borderColor='var(--line)'}>
+                        {leadScreenshot ? (
+                          <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize:14, color:'var(--sage)' }}>check_circle</span>
+                            <span style={{ color:'var(--ink)', fontWeight:500 }}>Screenshot selected</span>
+                            <span style={{ fontSize:9, color:'var(--ink-soft)', cursor:'pointer', textDecoration:'underline' }}
+                              onClick={e => { e.stopPropagation(); setLeadScreenshot(null); document.getElementById('ss-input').value=''; }}>Remove</span>
+                          </div>
+                        ) : (
+                          <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize:14 }}>upload</span>
+                            <span>Click to upload screenshot</span>
+                          </div>
+                        )}
+                      </div>
+                      <input id="ss-input" type="file" accept="image/*" onChange={handleScreenshotChange} style={{ display:'none' }} />
                     </div>
                   </div>
                   <div className="detail-field-row">
@@ -401,5 +442,57 @@ export default function MyDonors() {
       </button>
       <button className="btn-prev" disabled={index === donors.length - 1} onClick={() => setIndex(i => i + 1)}>Next →</button>
     </div>
+
+    {/* Donation Modal */}
+    {showDonationModal && (
+      <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,.4)' }} onClick={() => setShowDonationModal(false)}>
+        <div style={{ background:'#fff', borderRadius:12, width:520, maxHeight:'80vh', display:'flex', flexDirection:'column', boxShadow:'0 8px 32px rgba(0,0,0,.15)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px', borderBottom:'1px solid var(--line)' }}>
+            <span style={{ fontSize:13, fontWeight:700 }}>Donations — {donor.donor_name}</span>
+            <span className="material-symbols-outlined" style={{ fontSize:18, cursor:'pointer', color:'var(--ink-soft)' }} onClick={() => setShowDonationModal(false)}>close</span>
+          </div>
+          <div style={{ padding:'10px 16px', borderBottom:'1px solid var(--line)', display:'flex', gap:6, alignItems:'center' }}>
+            <span style={{ fontSize:10, fontWeight:600, color:'var(--ink-soft)', whiteSpace:'nowrap' }}>Show:</span>
+            {['this_year', 'fy_2025_26', 'fy_2024_25', 'fy_2023_24'].map(y => (
+              <button key={y} onClick={() => handleDonationYearChange(y)}
+                style={{ padding:'4px 10px', border:`1px solid ${donationYear === y ? 'var(--sage)' : 'var(--line)'}`, borderRadius:6, background: donationYear === y ? 'var(--sage)' : '#fff', color: donationYear === y ? '#fff' : 'var(--ink)', fontSize:10, fontWeight:600, fontFamily:'inherit', cursor:'pointer', transition:'all .12s' }}>
+                {y === 'this_year' ? 'This Year' : y.replace(/fy_(\d{4})_(\d{2})/, 'FY $1\u2013$2')}
+              </button>
+            ))}
+          </div>
+          <div style={{ flex:1, overflowY:'auto', padding:12 }}>
+            {donationLoading ? (
+              <div style={{ textAlign:'center', padding:20, fontSize:11, color:'var(--ink-soft)' }}>Loading...</div>
+            ) : donations.length === 0 ? (
+              <div style={{ textAlign:'center', padding:20, fontSize:11, color:'var(--ink-soft)' }}>No donations for this period.</div>
+            ) : (
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                <thead>
+                  <tr style={{ borderBottom:'1px solid var(--line)' }}>
+                    <th style={{ textAlign:'left', padding:'5px 6px', fontSize:9, fontWeight:600, textTransform:'uppercase', color:'var(--ink-soft)' }}>Date</th>
+                    <th style={{ textAlign:'left', padding:'5px 6px', fontSize:9, fontWeight:600, textTransform:'uppercase', color:'var(--ink-soft)' }}>Amount</th>
+                    <th style={{ textAlign:'left', padding:'5px 6px', fontSize:9, fontWeight:600, textTransform:'uppercase', color:'var(--ink-soft)' }}>Mode</th>
+                    <th style={{ textAlign:'left', padding:'5px 6px', fontSize:9, fontWeight:600, textTransform:'uppercase', color:'var(--ink-soft)' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {donations.map((d, i) => (
+                    <tr key={i} style={{ borderBottom:'1px solid var(--line)' }}>
+                      <td style={{ padding:'5px 6px' }}>{d.date ? new Date(d.date).toLocaleDateString('en-GB') : '—'}</td>
+                      <td style={{ padding:'5px 6px', fontWeight:600 }}>₹{Number(d.amount || 0).toLocaleString('en-IN')}</td>
+                      <td style={{ padding:'5px 6px' }}>{d.mode || '—'}</td>
+                      <td style={{ padding:'5px 6px' }}><span className={`bento-pill ${d.status === 'verified' ? 'bento-pill-green' : d.status === 'rejected' ? 'bento-pill-red' : 'bento-pill-yellow'}`}>{d.status || '—'}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          <div style={{ padding:'10px 16px', borderTop:'1px solid var(--line)', textAlign:'right', fontSize:10, color:'var(--ink-soft)' }}>
+            Total: ₹{donations.reduce((s, d) => s + Number(d.amount || 0), 0).toLocaleString('en-IN')}
+          </div>
+        </div>
+      </div>
+    )}
   </>);
 }
