@@ -3,6 +3,8 @@ import { getMyDashboard } from '../api/donors';
 import { getMyTarget } from '../api/target';
 import { requestMoreData } from '../api/donors';
 
+const currency = n => n != null ? '₹' + Number(n).toLocaleString('en-IN') : '—';
+
 export default function Dashboard() {
   const [dashData, setDashData] = useState(null);
   const [targetData, setTargetData] = useState(null);
@@ -56,8 +58,41 @@ export default function Dashboard() {
     not_set: 'Not set by NGO Admin yet',
   };
 
+  const mainBox = { border:'1px solid var(--line)', borderRadius:16, padding:'18px 20px', display:'flex', flexDirection:'column', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.04)' };
+
   return (
     <div className="bento-grid">
+      {/* Hero row — main stats */}
+      <div className="bento-col-4">
+        <div style={mainBox}>
+          <div style={{ fontSize:10, fontWeight:600, textTransform:'uppercase', letterSpacing:.5, color:'var(--md-outline)', marginBottom:2 }}>Collected</div>
+          <div style={{ fontSize:28, fontWeight:800, color:'var(--sage)', lineHeight:1.2 }}>{currency(collected)}</div>
+          <div style={{ marginTop:8, height:4, borderRadius:2, background:'var(--md-outline-variant)', overflow:'hidden' }}>
+            <div style={{ height:'100%', borderRadius:2, background:'var(--sage)', width:`${progress}%`, transition:'width .4s' }}></div>
+          </div>
+          <div style={{ marginTop:6, fontSize:10, color:'var(--ink-soft)' }}>{progress.toFixed(0)}% of target achieved</div>
+        </div>
+      </div>
+      <div className="bento-col-4">
+        <div style={mainBox}>
+          <div style={{ fontSize:10, fontWeight:600, textTransform:'uppercase', letterSpacing:.5, color:'var(--md-outline)', marginBottom:2 }}>Monthly Target</div>
+          <div style={{ fontSize:28, fontWeight:800, color:'var(--ink)', lineHeight:1.2 }}>{currency(target)}</div>
+          <div style={{ marginTop:8, fontSize:10, color:'var(--ink-soft)' }}>
+            {ts.target_source ? <>Source: {sourceLabel[ts.target_source] || ts.target_source}</> : '—'}
+          </div>
+        </div>
+      </div>
+      <div className="bento-col-4">
+        <div style={mainBox}>
+          <div style={{ fontSize:10, fontWeight:600, textTransform:'uppercase', letterSpacing:.5, color:'var(--md-outline)', marginBottom:2 }}>Remaining</div>
+          <div style={{ fontSize:28, fontWeight:800, color: remaining > 0 ? '#e53e3e' : 'var(--sage)', lineHeight:1.2 }}>{currency(remaining)}</div>
+          <div style={{ marginTop:8, fontSize:10, color:'var(--ink-soft)' }}>
+            {remaining > 0 ? `Need ${currency(remaining)} more to hit target` : 'Target achieved!'}
+          </div>
+        </div>
+      </div>
+
+      {/* Secondary stats row */}
       <div className="bento-col-3">
         <div className="bento-card">
           <div className="m3-stat">
@@ -85,33 +120,7 @@ export default function Dashboard() {
       <div className="bento-col-3">
         <div className="bento-card">
           <div className="m3-stat">
-            <div className="m3-stat-num">₹{Number(collected).toLocaleString('en-IN')}</div>
-            <div className="m3-stat-lbl">Collected</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bento-col-3">
-        <div className="bento-card">
-          <div className="m3-stat">
-            <div className="m3-stat-num">₹{Number(target).toLocaleString('en-IN')}</div>
-            <div className="m3-stat-lbl">Monthly Target</div>
-          </div>
-        </div>
-      </div>
-      <div className="bento-col-3">
-        <div className="bento-card">
-          <div className="m3-stat">
-            <div className="m3-stat-num">₹{Number(remaining).toLocaleString('en-IN')}</div>
-            <div className="m3-stat-lbl">Remaining</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bento-col-3">
-        <div className="bento-card">
-          <div className="m3-stat">
-            <div className="m3-stat-num" style={{ color:'var(--amber)' }}>₹{Number(inc.totalAKI || 0).toLocaleString('en-IN')}</div>
+            <div className="m3-stat-num" style={{ color:'var(--amber)' }}>{currency(inc.totalAKI)}</div>
             <div className="m3-stat-lbl">Total AKI</div>
           </div>
         </div>
@@ -119,9 +128,7 @@ export default function Dashboard() {
       <div className="bento-col-3">
         <div className="bento-card">
           <div className="m3-stat">
-            <div className="m3-stat-num" style={{ color: inc.targetMet ? 'var(--sage)' : 'var(--ink-soft)' }}>
-              ₹{Number(inc.akiPayout || 0).toLocaleString('en-IN')}
-            </div>
+            <div className="m3-stat-num" style={{ color: inc.targetMet ? 'var(--sage)' : 'var(--ink-soft)' }}>{currency(inc.akiPayout)}</div>
             <div className="m3-stat-lbl">AKI Payout {!inc.targetMet && <span style={{fontSize:9, color:'var(--ink-soft)'}}>(target not met)</span>}</div>
           </div>
         </div>
@@ -129,9 +136,7 @@ export default function Dashboard() {
       <div className="bento-col-3">
         <div className="bento-card">
           <div className="m3-stat">
-            <div className="m3-stat-num" style={{ color: inc.targetMet ? 'var(--sage)' : 'var(--ink-soft)' }}>
-              ₹{Number(inc.monthlyIncentive || 0).toLocaleString('en-IN')}
-            </div>
+            <div className="m3-stat-num" style={{ color: inc.targetMet ? 'var(--sage)' : 'var(--ink-soft)' }}>{currency(inc.monthlyIncentive)}</div>
             <div className="m3-stat-lbl">Monthly 10%</div>
           </div>
         </div>
@@ -139,7 +144,7 @@ export default function Dashboard() {
       <div className="bento-col-3">
         <div className="bento-card" style={{ background: inc.targetMet ? 'var(--sage)' : 'var(--bg)', color: inc.targetMet ? '#fff' : 'var(--ink)' }}>
           <div className="m3-stat">
-            <div className="m3-stat-num">₹{Number(inc.totalIncentive || 0).toLocaleString('en-IN')}</div>
+            <div className="m3-stat-num">{currency(inc.totalIncentive)}</div>
             <div className="m3-stat-lbl" style={{ color: inc.targetMet ? 'rgba(255,255,255,.7)' : undefined }}>
               {inc.isNewJoiner ? 'Incentive (New Joiner)' : 'Total Incentive'}
             </div>
@@ -160,26 +165,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="bento-col-8">
-        <div className="bento-card">
-          <div className="bento-card-h">
-            <h3>Monthly Progress</h3>
-            <span style={{ fontSize:11, color:'var(--md-outline)' }}>
-              ₹{Number(collected).toLocaleString('en-IN')} / ₹{Number(target).toLocaleString('en-IN')} ({progress.toFixed(0)}%)
-            </span>
-          </div>
-          <div className="fro-progress">
-            <div className="fro-progress-fill" style={{ width:`${progress}%` }}></div>
-          </div>
-          {target > 0 && (
-            <div style={{ marginTop:8, fontSize:10, color:'var(--md-outline)' }}>
-              <strong>Source:</strong> {sourceLabel[ts.target_source] || ts.target_source || '—'}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="bento-col-4">
+      <div className="bento-col-6">
         <div className="bento-card">
           <div className="bento-card-h"><h3>Status Breakdown</h3></div>
           <table className="bento-table">
@@ -198,6 +184,25 @@ export default function Dashboard() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+      <div className="bento-col-6">
+        <div className="bento-card">
+          <div className="bento-card-h"><h3>Incentive Summary</h3></div>
+          <table className="bento-table">
+            <tbody>
+              <tr><td>Total AKI</td><td style={{ fontWeight:600 }}>{currency(inc.totalAKI)}</td></tr>
+              <tr><td>AKI Payout</td><td style={{ fontWeight:600, color: inc.targetMet ? 'var(--sage)' : 'var(--ink-soft)' }}>{currency(inc.akiPayout)}</td></tr>
+              <tr><td>Monthly 10%</td><td style={{ fontWeight:600, color: inc.targetMet ? 'var(--sage)' : 'var(--ink-soft)' }}>{currency(inc.monthlyIncentive)}</td></tr>
+              <tr><td style={{ fontWeight:700 }}>Total Incentive</td><td style={{ fontWeight:800, fontSize:13 }}>{currency(inc.totalIncentive)}</td></tr>
+            </tbody>
+          </table>
+          <div style={{ marginTop:8, fontSize:9, color:'var(--ink-soft)', lineHeight:1.4, borderTop:'1px solid var(--md-outline-variant)', paddingTop:6 }}>
+            {inc.isNewJoiner
+              ? 'New joiner — AKI paid at 100%'
+              : 'Regular — AKI paid at 50%'}
+            {!inc.targetMet && <span>. Target must be met for payout.</span>}
+          </div>
         </div>
       </div>
 
