@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getMyDonors, getDonorDetail, addDonorLog, markDonorSeen } from '../api/donors';
+import { getMyDonors, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot } from '../api/donors';
 
 const NOT_CONNECTED = [
   { id: 'busy', label: 'Busy' }, { id: 'ringing', label: 'Ringing' },
@@ -44,6 +44,10 @@ export default function MyDonors() {
   const [selected, setSelected] = useState(null);
   const [notes, setNotes] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
+  const [leadScreenshot, setLeadScreenshot] = useState(null);
+  const [leadAddress, setLeadAddress] = useState('');
+  const [leadPan, setLeadPan] = useState('');
+  const [leadDob, setLeadDob] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -82,6 +86,23 @@ export default function MyDonors() {
       now.setMinutes(now.getMinutes() + 5 - now.getTimezoneOffset());
       setScheduledAt(now.toISOString().slice(0, 16));
     }
+    if (detailId !== 'lead_done') {
+      setLeadScreenshot(null);
+      setLeadAddress('');
+      setLeadPan('');
+      setLeadDob('');
+    }
+  };
+
+  const handleScreenshotChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      setLeadScreenshot({ base64, mime: file.type });
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSave = async () => {
@@ -97,9 +118,18 @@ export default function MyDonors() {
         ngo_id: donor.ngo_id,
       };
       if (selected === 'scheduled') logData.scheduled_at = new Date(scheduledAt + ':00').toISOString();
+      if (selected === 'lead_done') {
+        if (leadScreenshot) {
+          const uploadResult = await uploadPaymentScreenshot(leadScreenshot.base64, leadScreenshot.mime);
+          logData.screenshot = uploadResult.url;
+        }
+        logData.donor_address = leadAddress || null;
+        logData.donor_pan = leadPan || null;
+        logData.donor_dob = leadDob || null;
+      }
       await addDonorLog(donor.id, logData);
       setMessage({ type: 'success', text: 'Disposition logged' });
-      setSelected(null); setNotes('');
+      setSelected(null); setNotes(''); setLeadScreenshot(null); setLeadAddress(''); setLeadPan(''); setLeadDob('');
       loadDetail();
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
@@ -270,6 +300,34 @@ export default function MyDonors() {
                   <div className="fld">
                     <label>Schedule Date & Time</label>
                     <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
+                  </div>
+                </div>
+              )}
+
+              {selected === 'lead_done' && (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  <div className="detail-field-row">
+                    <div className="fld">
+                      <label>Screenshot</label>
+                      <input type="file" accept="image/*" onChange={handleScreenshotChange}
+                        style={{ fontSize:10, fontFamily:'inherit' }} />
+                    </div>
+                  </div>
+                  <div className="detail-field-row">
+                    <div className="fld">
+                      <label>Address</label>
+                      <input type="text" value={leadAddress} onChange={e => setLeadAddress(e.target.value)} placeholder="Donor address" />
+                    </div>
+                  </div>
+                  <div className="detail-field-row">
+                    <div className="fld">
+                      <label>PAN</label>
+                      <input type="text" value={leadPan} onChange={e => setLeadPan(e.target.value)} placeholder="PAN number" />
+                    </div>
+                    <div className="fld">
+                      <label>DOB</label>
+                      <input type="date" value={leadDob} onChange={e => setLeadDob(e.target.value)} />
+                    </div>
                   </div>
                 </div>
               )}
