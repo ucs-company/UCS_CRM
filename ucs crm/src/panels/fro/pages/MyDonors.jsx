@@ -135,7 +135,7 @@ export default function MyDonors() {
     return <span className={`pill ${STATUS_PILL_MAP[status] || 'pill-gray'}`}>{label}</span>;
   };
 
-  return (
+  return (<>
     <div className="detail-card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div className="detail-split" style={{ flex: 1, minHeight: 0 }}>
         {/* LEFT PANEL — merged profile + details */}
@@ -331,18 +331,17 @@ export default function MyDonors() {
           </div>
         </div>
       </div>
-
-      {/* Action Bar — outside all containers */}
-      <div className="detail-action-outer">
-        <span className="counter">{index + 1} of {donors.length}</span>
-        <button className="btn-prev" disabled={index === 0} onClick={() => setIndex(i => i - 1)}>← Prev</button>
-        <button className="btn-next"
-          disabled={saving}
-          onClick={handleSave}>
-          {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'NEXT'}
-        </button>
-        <button className="btn-prev" disabled={index === donors.length - 1} onClick={() => setIndex(i => i + 1)}>Next →</button>
-      </div>
     </div>
-  );
+
+    <div className="detail-action-outer">
+      <span className="counter">{index + 1} of {donors.length}</span>
+      <button className="btn-prev" disabled={index === 0} onClick={() => setIndex(i => i - 1)}>← Prev</button>
+      <button className="btn-next"
+        disabled={saving}
+        onClick={handleSave}>
+        {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'NEXT'}
+      </button>
+      <button className="btn-prev" disabled={index === donors.length - 1} onClick={() => setIndex(i => i + 1)}>Next →</button>
+    </div>
+  </>);
 }
