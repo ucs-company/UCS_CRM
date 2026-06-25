@@ -92,19 +92,24 @@ export default function MyDonors() {
     }
     if (detailId !== 'lead_done') {
       setLeadScreenshot(null);
+      setScreenshotPreview(null);
       setLeadAddress('');
       setLeadPan('');
       setLeadDob('');
     }
   };
 
+  const [screenshotPreview, setScreenshotPreview] = useState(null);
+
   const handleScreenshotChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const base64 = reader.result.split(',')[1];
+      const result = reader.result;
+      const base64 = result.split(',')[1];
       setLeadScreenshot({ base64, mime: file.type });
+      setScreenshotPreview(result);
     };
     reader.readAsDataURL(file);
   };
@@ -157,7 +162,7 @@ export default function MyDonors() {
       }
       await addDonorLog(donor.id, logData);
       setMessage({ type: 'success', text: 'Disposition logged' });
-      setSelected(null); setNotes(''); setLeadScreenshot(null); setLeadAddress(''); setLeadPan(''); setLeadDob('');
+      setSelected(null); setNotes(''); setLeadScreenshot(null); setScreenshotPreview(null); setLeadAddress(''); setLeadPan(''); setLeadDob('');
       loadDetail();
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
@@ -335,24 +340,25 @@ export default function MyDonors() {
                   <div className="detail-field-row">
                     <div className="fld">
                       <label>Screenshot</label>
-                      <div onClick={() => document.getElementById('ss-input').click()}
-                        style={{ border:'1px dashed var(--line)', borderRadius:6, padding:'10px 8px', textAlign:'center', cursor:'pointer', fontSize:10, color:'var(--ink-soft)', transition:'all .12s' }}
-                        onMouseOver={e => e.currentTarget.style.borderColor='var(--sage)'}
-                        onMouseOut={e => e.currentTarget.style.borderColor='var(--line)'}>
-                        {leadScreenshot ? (
-                          <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize:14, color:'var(--sage)' }}>check_circle</span>
-                            <span style={{ color:'var(--ink)', fontWeight:500 }}>Screenshot selected</span>
-                            <span style={{ fontSize:9, color:'var(--ink-soft)', cursor:'pointer', textDecoration:'underline' }}
-                              onClick={e => { e.stopPropagation(); setLeadScreenshot(null); document.getElementById('ss-input').value=''; }}>Remove</span>
-                          </div>
-                        ) : (
+                      {screenshotPreview ? (
+                        <div style={{ position:'relative', display:'inline-block' }}>
+                          <img src={screenshotPreview} alt="screenshot preview"
+                            style={{ width:'100%', maxHeight:100, objectFit:'cover', borderRadius:6, border:'1px solid var(--line)', cursor:'pointer' }}
+                            onClick={() => window.open(screenshotPreview, '_blank')} />
+                          <span className="material-symbols-outlined" style={{ position:'absolute', top:4, right:4, fontSize:14, background:'rgba(0,0,0,.5)', color:'#fff', borderRadius:4, padding:2, cursor:'pointer' }}
+                            onClick={() => { setLeadScreenshot(null); setScreenshotPreview(null); document.getElementById('ss-input').value=''; }}>close</span>
+                        </div>
+                      ) : (
+                        <div onClick={() => document.getElementById('ss-input').click()}
+                          style={{ border:'1px dashed var(--line)', borderRadius:6, padding:'10px 8px', textAlign:'center', cursor:'pointer', fontSize:10, color:'var(--ink-soft)', transition:'all .12s' }}
+                          onMouseOver={e => e.currentTarget.style.borderColor='var(--sage)'}
+                          onMouseOut={e => e.currentTarget.style.borderColor='var(--line)'}>
                           <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
                             <span className="material-symbols-outlined" style={{ fontSize:14 }}>upload</span>
                             <span>Click to upload screenshot</span>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                       <input id="ss-input" type="file" accept="image/*" onChange={handleScreenshotChange} style={{ display:'none' }} />
                     </div>
                   </div>
