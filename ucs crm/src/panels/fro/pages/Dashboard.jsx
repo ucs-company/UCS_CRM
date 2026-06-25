@@ -1,74 +1,95 @@
-import { useState, useEffect } from 'react';
-import { getMyDashboard } from '../api/donors';
-import { getMyTarget } from '../api/target';
-import { requestMoreData } from '../api/donors';
+import { useState, useEffect } from 'react'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
+import { getMyDashboard } from '../api/donors'
+import { getMyTarget } from '../api/target'
+import { requestMoreData } from '../api/donors'
+import { SkeletonDashboard } from '../../../components/Skeleton'
 
-const currency = n => n != null ? '₹' + Number(n).toLocaleString('en-IN') : '—';
+const currency = n => n != null ? '₹' + Number(n).toLocaleString('en-IN') : '—'
+
+const STATUS_COLORS = {
+  pending: '#fbbf24', contacted: '#60a5fa', follow_up: '#a78bfa',
+  donation_collected: '#34d399', lead_done: '#34d399', not_interested: '#f87171',
+  not_reachable: '#9ca3af', scheduled: '#a78bfa',
+}
 
 export default function Dashboard() {
-  const [dashData, setDashData] = useState(null);
-  const [targetData, setTargetData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [showRequest, setShowRequest] = useState(false);
-  const [reqMsg, setReqMsg] = useState('');
-  const [sending, setSending] = useState(false);
-  const [reqDone, setReqDone] = useState(false);
+  const [dashData, setDashData] = useState(null)
+  const [targetData, setTargetData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [showRequest, setShowRequest] = useState(false)
+  const [reqMsg, setReqMsg] = useState('')
+  const [sending, setSending] = useState(false)
+  const [reqDone, setReqDone] = useState(false)
 
   useEffect(() => {
-    setLoading(true);
+    setLoading(true)
     Promise.all([
       getMyDashboard().catch(() => null),
       getMyTarget().catch(() => null),
     ]).then(([d, t]) => {
-      setDashData(d);
-      setTargetData(t);
-    }).finally(() => setLoading(false));
-  }, []);
+      setDashData(d)
+      setTargetData(t)
+    }).finally(() => setLoading(false))
+  }, [])
 
   const handleSendRequest = async () => {
-    if (!reqMsg.trim()) return;
-    setSending(true);
+    if (!reqMsg.trim()) return
+    setSending(true)
     try {
-      await requestMoreData(reqMsg);
-      setReqDone(true);
-      setReqMsg('');
-      setTimeout(() => { setShowRequest(false); setReqDone(false); }, 2000);
+      await requestMoreData(reqMsg)
+      setReqDone(true)
+      setReqMsg('')
+      setTimeout(() => { setShowRequest(false); setReqDone(false) }, 2000)
     } catch (err) {
-      alert(err.message);
+      alert(err.message)
     } finally {
-      setSending(false);
+      setSending(false)
     }
-  };
+  }
 
-  if (loading) return <div className="loading">Loading dashboard…</div>;
+  if (loading) return <SkeletonDashboard />
 
-  const ds = dashData || {};
-  const ts = targetData || {};
-  const { stats = {} } = ds;
-  const target = ts.target || ds.target || 0;
-  const collected = ts.collected || ds.collected || 0;
-  const remaining = ts.remaining || Math.max(0, target - collected);
-  const progress = target > 0 ? Math.min(100, (collected / target) * 100) : 0;
-
-  const inc = ts.incentive || {};
+  const ds = dashData || {}
+  const ts = targetData || {}
+  const { stats = {} } = ds
+  const target = ts.target || ds.target || 0
+  const collected = ts.collected || ds.collected || 0
+  const remaining = ts.remaining || Math.max(0, target - collected)
+  const progress = target > 0 ? Math.min(100, (collected / target) * 100) : 0
+  const inc = ts.incentive || {}
 
   const sourceLabel = {
     auto: 'Auto-calculated (based on salary & joining date)',
     manual: 'Set by NGO Admin',
     not_set: 'Not set by NGO Admin yet',
-  };
+  }
 
-  const mainBox = { border:'1px solid var(--line)', borderRadius:16, padding:'18px 20px', display:'flex', flexDirection:'column', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.04)' };
+  const mainBox = { border:'1px solid var(--line)', borderRadius:16, padding:'18px 20px', display:'flex', flexDirection:'column', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }
+
+  const pieData = ts.stats
+    ? Object.entries(ts.stats).filter(([k]) => k !== 'total').map(([k, v]) => ({
+        name: k.replace(/_/g, ' '),
+        value: v,
+        color: STATUS_COLORS[k] || '#94a3b8',
+      }))
+    : []
+
+  const barData = [
+    { name: 'Target', amount: target, fill: '#94a3b8' },
+    { name: 'Collected', amount: collected, fill: '#34d399' },
+    { name: 'Remaining', amount: remaining, fill: '#f87171' },
+  ]
 
   return (
     <div className="bento-grid">
-      {/* Hero row — main stats */}
+      {/* Hero row */}
       <div className="bento-col-4">
         <div style={mainBox}>
           <div style={{ fontSize:10, fontWeight:600, textTransform:'uppercase', letterSpacing:.5, color:'var(--md-outline)', marginBottom:2 }}>Collected</div>
           <div style={{ fontSize:28, fontWeight:800, color:'var(--sage)', lineHeight:1.2 }}>{currency(collected)}</div>
           <div style={{ marginTop:8, height:4, borderRadius:2, background:'var(--md-outline-variant)', overflow:'hidden' }}>
-            <div style={{ height:'100%', borderRadius:2, background:'var(--sage)', width:`${progress}%`, transition:'width .4s' }}></div>
+            <div style={{ height:'100%', borderRadius:2, background:'var(--sage)', width:`${progress}%`, transition:'width .4s' }} />
           </div>
           <div style={{ marginTop:6, fontSize:10, color:'var(--ink-soft)' }}>{progress.toFixed(0)}% of target achieved</div>
         </div>
@@ -165,50 +186,58 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="bento-col-6">
+      {/* Chart row */}
+      <div className="bento-col-7">
         <div className="bento-card">
-          <div className="bento-card-h"><h3>Status Breakdown</h3></div>
-          <table className="bento-table">
-            <thead>
-              <tr><th>Status</th><th>Count</th></tr>
-            </thead>
-            <tbody>
-              {ts.stats && Object.entries(ts.stats).filter(([k]) => k !== 'total').map(([status, count]) => (
-                <tr key={status}>
-                  <td style={{ textTransform:'capitalize' }}>{status.replace(/_/g, ' ')}</td>
-                  <td>{count}</td>
-                </tr>
-              ))}
-              {(!ts.stats || Object.keys(ts.stats).filter(k => k !== 'total').length === 0) && (
-                <tr><td colSpan={2} style={{ textAlign:'center', color:'var(--md-outline)', fontSize:10, padding:'12px 0' }}>No status data</td></tr>
-              )}
-            </tbody>
-          </table>
+          <div className="bento-card-h"><h3>Target vs Collection</h3></div>
+          <div style={{ width:'100%', height:220 }}>
+            <ResponsiveContainer>
+              <BarChart data={barData} margin={{ top:8, right:8, left:-8, bottom:4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="name" tick={{ fontSize:11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize:10 }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + (v / 1000).toFixed(0) + 'k'} />
+                <Tooltip formatter={(v) => [currency(v), 'Amount']} contentStyle={{ fontSize:11, borderRadius:8, border:'1px solid #e2e8f0' }} />
+                <Bar dataKey="amount" radius={[6,6,0,0]} barSize={48}>
+                  {barData.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
-      <div className="bento-col-6">
+      <div className="bento-col-5">
         <div className="bento-card">
-          <div className="bento-card-h"><h3>Incentive Summary</h3></div>
-          <table className="bento-table">
-            <tbody>
-              <tr><td>Total AKI</td><td style={{ fontWeight:600 }}>{currency(inc.totalAKI)}</td></tr>
-              <tr><td>AKI Payout</td><td style={{ fontWeight:600, color: inc.targetMet ? 'var(--sage)' : 'var(--ink-soft)' }}>{currency(inc.akiPayout)}</td></tr>
-              <tr><td>Monthly 10%</td><td style={{ fontWeight:600, color: inc.targetMet ? 'var(--sage)' : 'var(--ink-soft)' }}>{currency(inc.monthlyIncentive)}</td></tr>
-              <tr><td style={{ fontWeight:700 }}>Total Incentive</td><td style={{ fontWeight:800, fontSize:13 }}>{currency(inc.totalIncentive)}</td></tr>
-            </tbody>
-          </table>
-          <div style={{ marginTop:8, fontSize:9, color:'var(--ink-soft)', lineHeight:1.4, borderTop:'1px solid var(--md-outline-variant)', paddingTop:6 }}>
-            {inc.isNewJoiner
-              ? 'New joiner — AKI paid at 100%'
-              : 'Regular — AKI paid at 50%'}
-            {!inc.targetMet && <span>. Target must be met for payout.</span>}
+          <div className="bento-card-h"><h3>Donor Status</h3></div>
+          <div style={{ width:'100%', height:220, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            {pieData.length > 0 ? (
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={3} dataKey="value">
+                    {pieData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v, n) => [v, n]} contentStyle={{ fontSize:11, borderRadius:8, border:'1px solid #e2e8f0' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ fontSize:11, color:'var(--ink-soft)' }}>No status data</div>
+            )}
           </div>
+          {pieData.length > 0 && (
+            <div style={{ display:'flex', flexWrap:'wrap', gap:'4px 10px', marginTop:6, justifyContent:'center' }}>
+              {pieData.map(e => (
+                <div key={e.name} style={{ display:'flex', alignItems:'center', gap:4, fontSize:9, color:'var(--ink-soft)' }}>
+                  <span style={{ width:8, height:8, borderRadius:2, background:e.color, display:'inline-block' }} />
+                  {e.name} ({e.value})
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Request More Data modal */}
       {showRequest && (
-        <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,.4)' }} onClick={() => { if (!sending) { setShowRequest(false); setReqDone(false); } }}>
+        <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,.4)' }} onClick={() => { if (!sending) { setShowRequest(false); setReqDone(false) } }}>
           <div style={{ background:'#fff', borderRadius:12, width:400, padding:20, boxShadow:'0 8px 32px rgba(0,0,0,.15)' }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize:14, fontWeight:700, marginBottom:4 }}>Request More Data</div>
             <div style={{ fontSize:10, color:'var(--ink-soft)', marginBottom:12 }}>Send a request to the NGO admin for additional donor assignments or data.</div>
@@ -223,7 +252,7 @@ export default function Dashboard() {
                   placeholder="Describe what data you need..."
                   style={{ width:'100%', padding:8, border:'1px solid var(--line)', borderRadius:6, fontSize:11, fontFamily:'inherit', resize:'vertical', boxSizing:'border-box' }} />
                 <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:12 }}>
-                  <button onClick={() => { setShowRequest(false); setReqMsg(''); }}
+                  <button onClick={() => { setShowRequest(false); setReqMsg('') }}
                     style={{ padding:'7px 16px', border:'1px solid var(--line)', borderRadius:6, background:'#fff', fontSize:11, fontWeight:600, fontFamily:'inherit', cursor:'pointer' }}>Cancel</button>
                   <button onClick={handleSendRequest} disabled={sending || !reqMsg.trim()}
                     style={{ padding:'7px 16px', border:'none', borderRadius:6, background:'var(--sage)', color:'#fff', fontSize:11, fontWeight:700, fontFamily:'inherit', cursor:'pointer', opacity: sending || !reqMsg.trim() ? .5 : 1 }}>
@@ -236,5 +265,5 @@ export default function Dashboard() {
         </div>
       )}
     </div>
-  );
+  )
 }

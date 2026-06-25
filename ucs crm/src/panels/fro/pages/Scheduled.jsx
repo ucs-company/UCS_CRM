@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getMyDonors, getDonorDetail, addDonorLog, uploadPaymentScreenshot, reportMissedSchedule } from '../api/donors';
+import { SkeletonTable } from '../../../components/Skeleton';
 
 const TABS = [
   { id: 'scheduled', label: 'Scheduled' },
@@ -224,7 +225,7 @@ export default function Scheduled() {
     setRefetch(n => n + 1);
   };
 
-  if (loading) return <div className="loading">Loading…</div>;
+  if (loading) return <SkeletonTable rows={8} />;
 
   const scheduledRows = rows.filter(r => r.type === 'scheduled');
   const callbackRows = rows.filter(r => r.type === 'callback');

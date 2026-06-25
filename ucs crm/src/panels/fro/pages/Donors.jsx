@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getMyDonors, getDonorDetail } from '../api/donors';
+import { SkeletonDonors } from '../../../components/Skeleton';
 
 const STATUS_PILL = {
   lead_done: 'pill-green', verified: 'pill-green', rejected: 'pill-red',
@@ -33,7 +34,7 @@ export default function Donors() {
     (d.donor_mobile || '').includes(search)
   );
 
-  if (loading) return <div className="loading">Loading donors...</div>;
+  if (loading) return <SkeletonDonors />;
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>

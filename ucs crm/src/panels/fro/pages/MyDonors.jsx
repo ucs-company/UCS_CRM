@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getMyDonors, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot, getDonorDonations } from '../api/donors';
+import { SkeletonProfile } from '../../../components/Skeleton';
 
 const NOT_CONNECTED = [
   { id: 'busy', label: 'Busy' }, { id: 'ringing', label: 'Ringing' },
@@ -186,7 +187,7 @@ export default function MyDonors() {
     setMessage({ type: 'error', text: 'Select a disposition' });
   };
 
-  if (loading) return <div className="loading">Loading donors...</div>;
+  if (loading) return <SkeletonProfile />;
 
   if (donors.length === 0) {
     return (

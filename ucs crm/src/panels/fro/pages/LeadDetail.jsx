@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { fetchLeadById, updateLead } from '../api/leads';
 import { fetchLeadCallLogs, addCallLog } from '../api/callLogs';
 import { DatePicker } from '../components/ui';
+import { SkeletonProfile } from '../../../components/Skeleton';
 
 const STATUS_STYLES = {
   hold: 'pill-yellow',
@@ -85,7 +86,7 @@ export default function LeadDetail({ leadId, onBack }) {
     }
   };
 
-  if (loading) return <div className="loading">Loading lead…</div>;
+  if (loading) return <SkeletonProfile />;
   if (!lead) return <div className="empty-state"><h3>Lead not found</h3></div>;
 
   return (

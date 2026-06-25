@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getMyTarget } from '../api/target';
+import { SkeletonRow } from '../../../components/Skeleton';
 
 export default function MyTarget() {
   const [data, setData] = useState(null);
@@ -13,7 +14,7 @@ export default function MyTarget() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="loading">Loading target...</div>;
+  if (loading) return <SkeletonRow cols={3} height={100} />;
   if (!data) return <div className="empty-state"><p>Could not load target data.</p></div>;
 
   const { target, collected, remaining, target_source, salary, months_employed, stats } = data;

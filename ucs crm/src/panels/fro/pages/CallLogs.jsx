@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { fetchCallLogs } from '../api/callLogs';
 import { DatePicker } from '../components/ui';
+import { SkeletonTable } from '../../../components/Skeleton';
 
 const STATUS_STYLES = {
   connected: 'pill-green',
@@ -33,7 +34,7 @@ export default function CallLogs() {
 
   const handleFilter = () => { load(); };
 
-  if (loading) return <div className="loading">Loading call logs…</div>;
+  if (loading) return <SkeletonTable rows={6} />;
 
   return (
     <div className="bento-grid" style={{flex:1}}>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { fetchMyLeads, updateLead } from '../api/leads';
 import { fetchLeadCallLogs, addCallLog } from '../api/callLogs';
 import { DatePicker } from '../components/ui';
+import { SkeletonProfile } from '../../../components/Skeleton';
 
 const STATUS_STYLES = {
   hold: 'pill-yellow', scheduled: 'pill-blue', selected: 'pill-green',
@@ -78,7 +79,7 @@ export default function MyLeads() {
     } catch (e) { alert(e.message); } finally { setLogBusy(false); }
   };
 
-  if (loading) return <div className="loading">Loading leads…</div>;
+  if (loading) return <SkeletonProfile />;
 
   const leadContent = () => {
     if (!lead) return null;
