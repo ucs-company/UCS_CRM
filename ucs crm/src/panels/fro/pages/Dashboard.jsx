@@ -4,6 +4,7 @@ import { getMyDashboard } from '../api/donors'
 import { getMyTarget } from '../api/target'
 import { requestMoreData } from '../api/donors'
 import { SkeletonDashboard } from '../../../components/Skeleton'
+import { cacheGet, cacheSet } from '../../../utils/cache'
 
 const currency = n => n != null ? '₹' + Number(n).toLocaleString('en-IN') : '—'
 
@@ -13,23 +14,26 @@ const STATUS_COLORS = {
   not_reachable: '#9ca3af', scheduled: '#a78bfa',
 }
 
+const CACHE_KEY = 'fro_dashboard'
+
 export default function Dashboard() {
-  const [dashData, setDashData] = useState(null)
-  const [targetData, setTargetData] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const cached = cacheGet(CACHE_KEY)
+  const [dashData, setDashData] = useState(cached?.dash || null)
+  const [targetData, setTargetData] = useState(cached?.target || null)
+  const [loading, setLoading] = useState(!cached)
   const [showRequest, setShowRequest] = useState(false)
   const [reqMsg, setReqMsg] = useState('')
   const [sending, setSending] = useState(false)
   const [reqDone, setReqDone] = useState(false)
 
   useEffect(() => {
-    setLoading(true)
     Promise.all([
       getMyDashboard().catch(() => null),
       getMyTarget().catch(() => null),
     ]).then(([d, t]) => {
       setDashData(d)
       setTargetData(t)
+      if (d || t) cacheSet(CACHE_KEY, { dash: d, target: t }, 30000)
     }).finally(() => setLoading(false))
   }, [])
 
