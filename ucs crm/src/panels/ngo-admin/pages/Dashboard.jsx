@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { apiGet } from '../api/auth';
 
 const DISPOSITION_LABELS = {
@@ -15,35 +15,18 @@ const DISPOSITION_LABELS = {
 };
 
 const DISPOSITION_GROUPS = [
-  { label: 'Converted', color: '#16a34a', bg: '#f0fdf4', light: '#bbf7d0', statuses: ['donation_collected', 'promise_to_pay', 'lead_done', 'visit_donate', 'payment_pending', 'already_donated'] },
-  { label: 'In Progress', color: '#d97706', bg: '#fffbeb', light: '#fde68a', statuses: ['pending', 'contacted', 'follow_up', 'scheduled'] },
-  { label: 'Negative', color: '#dc2626', bg: '#fef2f2', light: '#fca5a5', statuses: ['not_interested', 'not_interested_now', 'rejected', 'busy', 'ringing', 'unreachable', 'switched_off', 'wrong_number', 'invalid_number', 'language_barrier'] },
-  { label: 'Other', color: '#5B6B4E', bg: '#f0f2ee', light: '#a8b59a', statuses: ['transferred_senior', 'query_complaint', 'receipt_request'] },
-];
-
-const getStatusColor = (status) => {
-  for (const g of DISPOSITION_GROUPS) {
-    if (g.statuses.includes(status)) return g.color;
-  }
-  return '#dc2626';
-};
-
-const STAT_CARDS = [
-  { label: 'Total Donors', key: 'total_donors', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
-  { label: 'Assigned Donors', key: 'assigned_donors', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 3.13 19 6.13 22 3.13"/></svg> },
-  { label: 'Active FROs', key: 'active_fros', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
-  { label: 'Month Collection', key: 'month_collection', format: (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`, icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg> },
+  { label: 'Converted', color: '#16a34a', bg: '#f0fdf4', statuses: ['donation_collected', 'promise_to_pay', 'lead_done', 'visit_donate', 'payment_pending', 'already_donated'] },
+  { label: 'In Progress', color: '#d97706', bg: '#fffbeb', statuses: ['pending', 'contacted', 'follow_up', 'scheduled'] },
+  { label: 'Negative', color: '#dc2626', bg: '#fef2f2', statuses: ['not_interested', 'not_interested_now', 'rejected', 'busy', 'ringing', 'unreachable', 'switched_off', 'wrong_number', 'invalid_number', 'language_barrier'] },
+  { label: 'Other', color: '#5B6B4E', bg: '#f0f2ee', statuses: ['transferred_senior', 'query_complaint', 'receipt_request'] },
 ];
 
 function StationDetailModal({ station, stats, stationInfo, onClose }) {
   if (!station) return null;
   const total = Object.values(stats || {}).reduce((t, v) => t + v, 0);
-
   const groupData = DISPOSITION_GROUPS.map(g => ({
-    ...g,
-    total: g.statuses.reduce((t, s) => t + (stats?.[s] || 0), 0),
+    ...g, total: g.statuses.reduce((t, s) => t + (stats?.[s] || 0), 0),
   })).filter(g => g.total > 0);
-
   const allStatuses = DISPOSITION_GROUPS.flatMap(g =>
     g.statuses.filter(s => (stats?.[s] || 0) > 0).map(s => ({ status: s, count: stats[s], group: g }))
   );
@@ -66,14 +49,12 @@ function StationDetailModal({ station, stats, stationInfo, onClose }) {
               <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>NGOs</div>
             </div>
           </div>
-
           {stationInfo?.fro_worker_name && (
             <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f0f2ee', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 10 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B6B4E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>{stationInfo.fro_worker_name}</span>
             </div>
           )}
-
           {groupData.length > 0 && (
             <div style={{ marginBottom: 14 }}>
               <div style={{ height: 8, borderRadius: 4, background: '#e5e7eb', display: 'flex', overflow: 'hidden' }}>
@@ -90,7 +71,6 @@ function StationDetailModal({ station, stats, stationInfo, onClose }) {
               </div>
             </div>
           )}
-
           {allStatuses.length > 0 && (
             <div>
               <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--ink-soft)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Disposition Breakdown</div>
@@ -156,42 +136,115 @@ export default function Dashboard() {
     stationInfoMap[st.station] = st;
   }
 
+  const total_donors = Number(data.total_donors) || 0;
+  const assigned_donors = Number(data.assigned_donors) || 0;
+  const active_fros = Number(data.active_fros) || 0;
+  const month_collection = Number(data.month_collection) || 0;
+  const unassigned = Math.max(0, total_donors - assigned_donors);
+  const assignPct = total_donors > 0 ? Math.round((assigned_donors / total_donors) * 100) : 0;
+
   const pieData = DISPOSITION_GROUPS.map(g => ({
     name: g.label,
     value: g.statuses.reduce((t, s) => t + (summary[s] || 0), 0),
     color: g.color,
   })).filter(d => d.value > 0);
 
-  const barData = stationNames.map(s => ({
-    name: s,
-    total: getStationTotal(s),
-    ...Object.fromEntries(DISPOSITION_GROUPS.map(g => [g.label, g.statuses.reduce((t, st) => t + getCell(s, st), 0)])),
-  }));
+  const barData = stationNames.map(s => ({ name: s, total: getStationTotal(s) })).sort((a, b) => b.total - a.total);
 
   return (
     <div>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         gap: 14, marginBottom: 20,
       }}>
-        {STAT_CARDS.map((card, i) => {
-          const val = card.format ? card.format(data[card.key]) : data[card.key];
-          return (
-            <div key={i} className="card" style={{ marginBottom: 0, padding: '16px 18px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'var(--sage)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0,
-                }}>
-                  {card.icon}
-                </div>
-                <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500 }}>{card.label}</span>
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.15 }}>{val}</div>
+        <div className="card" style={{ marginBottom: 0, padding: '16px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Donor Assignment</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{total_donors}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div style={{ width: 64, height: 64, flexShrink: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={[
+                    { name: 'Assigned', value: assigned_donors, color: 'var(--sage)' },
+                    { name: 'Unassigned', value: unassigned, color: '#e5e7eb' },
+                  ]} cx="50%" cy="50%" innerRadius={20} outerRadius={30} dataKey="value" startAngle={90} endAngle={-270}>
+                    <Cell fill="var(--sage)" />
+                    <Cell fill="#e5e7eb" />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-          );
-        })}
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
+                <span style={{ color: 'var(--sage)', fontWeight: 600 }}>Assigned</span>
+                <span style={{ fontWeight: 600 }}>{assigned_donors}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ color: '#9ca3af', fontWeight: 500 }}>Unassigned</span>
+                <span style={{ fontWeight: 500, color: '#9ca3af' }}>{unassigned}</span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>{assignPct}% assigned</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 0, padding: '16px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Active FRO Workers</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{active_fros}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div style={{ width: 64, height: 64, flexShrink: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={[{ value: active_fros, color: 'var(--sage)' }, { value: Math.max(1, 50 - active_fros), color: '#e5e7eb' }]}
+                    cx="50%" cy="50%" innerRadius={20} outerRadius={30} dataKey="value" startAngle={90} endAngle={-270}>
+                    <Cell fill="var(--sage)" />
+                    <Cell fill="#e5e7eb" />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ height: 4, borderRadius: 2, background: '#e5e7eb', marginBottom: 6, overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, (active_fros / 50) * 100)}%`, height: '100%', borderRadius: 2, background: 'var(--sage)' }} />
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{active_fros} currently active</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 0, padding: '16px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+            <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Month Collection</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>₹{month_collection.toLocaleString('en-IN')}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            <div style={{ width: 64, height: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
+                <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Total</span>
+                <span style={{ fontWeight: 600 }}>₹{month_collection.toLocaleString('en-IN')}</span>
+              </div>
+              {month_collection > 0 && (
+                <div style={{ height: 4, borderRadius: 2, background: '#e5e7eb', overflow: 'hidden' }}>
+                  <div style={{ width: '100%', height: '100%', borderRadius: 2, background: '#16a34a', opacity: 0.6 }} />
+                </div>
+              )}
+              <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: month_collection > 0 ? 2 : 0 }}>
+                {month_collection === 0 ? 'No collections yet' : 'Current month'}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div style={{
@@ -206,10 +259,10 @@ export default function Dashboard() {
               <span className="count">{grandTotal} total</span>
             </div>
             <div className="card-pad" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ width: 160, height: 160, flexShrink: 0 }}>
+              <div style={{ width: 140, height: 140, flexShrink: 0 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={32} outerRadius={60} dataKey="value" paddingAngle={2}>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={32} outerRadius={58} dataKey="value" paddingAngle={2}>
                       {pieData.map((entry, i) => (
                         <Cell key={i} fill={entry.color} stroke="none" />
                       ))}
@@ -218,7 +271,7 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
                 {pieData.map(d => (
                   <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
@@ -237,16 +290,13 @@ export default function Dashboard() {
               <h3>Station-wise Totals</h3>
               <span className="count">{barData.length} stations</span>
             </div>
-            <div className="card-pad" style={{ height: 180 }}>
+            <div className="card-pad" style={{ height: 200, padding: '8px 12px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barData} margin={{ top: 4, right: 4, bottom: 0, left: -8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={40} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  {DISPOSITION_GROUPS.map(g => (
-                    <Bar key={g.label} dataKey={g.label} stackId="a" fill={g.color} opacity={0.65} />
-                  ))}
+                <BarChart data={barData.slice(0, 8)} layout="vertical" margin={{ top: 0, right: 20, bottom: 0, left: 0 }}>
+                  <XAxis type="number" tick={{ fontSize: 10 }} hide />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#6b7280' }} width={80} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v) => [v, 'Donors']} cursor={{ fill: '#f3f4f6' }} />
+                  <Bar dataKey="total" fill="#5B6B4E" radius={[0, 3, 3, 0]} barSize={14} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -266,21 +316,15 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="card-pad">
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: 10,
-            }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
               {stationNames.map(st => {
                 const total = getStationTotal(st);
                 const info = stationInfoMap[st];
                 const hasFro = info?.fro_worker_name;
-
                 const groupCounts = DISPOSITION_GROUPS.map(g => ({
                   ...g, count: g.statuses.reduce((t, s) => t + getCell(st, s), 0),
                 }));
                 const visibleGroups = groupCounts.filter(g => g.count > 0);
-
                 return (
                   <div key={st} style={{
                     background: 'var(--card-bg)', borderRadius: 'var(--radius-sm)',
@@ -294,12 +338,8 @@ export default function Dashboard() {
                     <div style={{ padding: '14px 14px 10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                         <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{st}</span>
-                        <span style={{
-                          background: 'var(--sage)', color: '#fff', borderRadius: 20,
-                          padding: '0 10px', fontSize: 12, fontWeight: 700, lineHeight: '22px',
-                        }}>{total}</span>
+                        <span style={{ background: 'var(--sage)', color: '#fff', borderRadius: 20, padding: '0 10px', fontSize: 12, fontWeight: 700, lineHeight: '22px' }}>{total}</span>
                       </div>
-
                       <div style={{ height: 4, borderRadius: 2, background: '#e5e7eb', display: 'flex', overflow: 'hidden', marginBottom: 8 }}>
                         {visibleGroups.map((g, i) => (
                           <div key={g.label} style={{
@@ -309,25 +349,17 @@ export default function Dashboard() {
                           }} />
                         ))}
                       </div>
-
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 0 }}>
                         {visibleGroups.slice(0, 3).map(g => (
-                          <span key={g.label} style={{ fontSize: 10, color: g.color, fontWeight: 600, padding: '1px 7px', borderRadius: 8, background: g.bg }}>
-                            {g.count}
-                          </span>
+                          <span key={g.label} style={{ fontSize: 10, color: g.color, fontWeight: 600, padding: '1px 7px', borderRadius: 8, background: g.bg }}>{g.count}</span>
                         ))}
                       </div>
                     </div>
-
                     {hasFro && (
                       <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)', background: 'var(--bg)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-soft)' }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5B6B4E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                         {info.fro_worker_name}
-                        {info?.ngos?.length > 0 && (
-                          <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--ink-soft)' }}>
-                            {info.ngos.length} NGO{info.ngos.length > 1 ? 's' : ''}
-                          </span>
-                        )}
+                        {info?.ngos?.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--ink-soft)' }}>{info.ngos.length} NGO{info.ngos.length > 1 ? 's' : ''}</span>}
                       </div>
                     )}
                   </div>
