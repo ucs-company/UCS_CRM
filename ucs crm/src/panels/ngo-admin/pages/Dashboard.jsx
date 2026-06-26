@@ -400,26 +400,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {pieData.length > 0 && (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-head">
-            <h3>Disposition Summary</h3>
-            <span className="count">{grandTotal} total across {stationNames.length} stations</span>
-          </div>
-          <div className="card-pad" style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-            {pieData.map(d => (
-              <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 140 }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{d.name}</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: d.color }}>{d.value}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {stationNames.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginBottom: 16 }}>
           {stationNames.map(st => {
@@ -436,7 +416,7 @@ export default function Dashboard() {
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sage)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                   <span style={{ fontSize: 13, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>{st}</span>
                   <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{total}</span>
                 </div>
