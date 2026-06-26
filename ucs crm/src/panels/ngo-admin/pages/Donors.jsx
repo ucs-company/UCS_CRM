@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { apiGet, apiPost } from '../api/auth';
 
 function AssignModal({ donors, froWorkers, onClose, onAssigned }) {
@@ -52,6 +52,8 @@ function AssignModal({ donors, froWorkers, onClose, onAssigned }) {
   );
 }
 
+const PER_PAGE = 50;
+
 export default function Donors({ onSelect }) {
   const [donors, setDonors] = useState([]);
   const [froWorkers, setFroWorkers] = useState([]);
@@ -60,6 +62,7 @@ export default function Donors({ onSelect }) {
   const [selected, setSelected] = useState(new Set());
   const [showAssign, setShowAssign] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   const load = () => {
     setLoading(true);
@@ -80,22 +83,34 @@ export default function Donors({ onSelect }) {
     return [...s].sort();
   }, [donors]);
 
-  const filtered = donors.filter(d => {
-    if (stationFilter && d.station !== stationFilter) return false;
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (d.name && d.name.toLowerCase().includes(q)) ||
-           (d.mobile_number && d.mobile_number.includes(q)) ||
-           (d.city && d.city.toLowerCase().includes(q)) ||
-           (d.station && d.station.toLowerCase().includes(q)) ||
-           (d.ngo && d.ngo.toLowerCase().includes(q));
-  });
+  const filtered = useMemo(() => {
+    return donors.filter(d => {
+      if (stationFilter && d.station !== stationFilter) return false;
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (d.name && d.name.toLowerCase().includes(q)) ||
+             (d.mobile_number && d.mobile_number.includes(q)) ||
+             (d.city && d.city.toLowerCase().includes(q)) ||
+             (d.station && d.station.toLowerCase().includes(q)) ||
+             (d.ngo && d.ngo.toLowerCase().includes(q));
+    });
+  }, [donors, search, stationFilter]);
+
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PER_PAGE;
+    return filtered.slice(start, start + PER_PAGE);
+  }, [filtered, page]);
+
+  useEffect(() => { setPage(1); }, [search, stationFilter]);
+
+  useEffect(() => { setSelected(new Set()); }, [page]);
 
   const toggleAll = () => {
-    if (selected.size === filtered.length) {
+    if (selected.size === paginated.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(filtered.map(d => d.id)));
+      setSelected(new Set(paginated.map(d => d.id)));
     }
   };
 
@@ -127,6 +142,7 @@ export default function Donors({ onSelect }) {
               {stations.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <span className="count">{filtered.length} donors</span>
+            {totalPages > 1 && <span className="count" style={{ background: '#eef2ff', color: '#6366f1' }}>Page {page} of {totalPages}</span>}
           </div>
           {loading ? (
             <div className="loading">Loading donors...</div>
@@ -134,7 +150,7 @@ export default function Donors({ onSelect }) {
             <table>
               <thead>
                 <tr>
-                  <th className="checkbox-col"><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleAll} /></th>
+                  <th className="checkbox-col"><input type="checkbox" checked={paginated.length > 0 && selected.size === paginated.length} onChange={toggleAll} /></th>
                   <th>Name</th>
                   <th>Phone</th>
                   <th>City</th>
@@ -147,7 +163,7 @@ export default function Donors({ onSelect }) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(d => (
+                {paginated.map(d => (
                   <tr key={d.id}>
                     <td className="checkbox-col"><input type="checkbox" checked={selected.has(d.id)} onChange={() => toggle(d.id)} /></td>
                     <td><a className="link" onClick={() => onSelect?.(d)} style={{ cursor: 'pointer' }}>{d.name || '—'}</a></td>
@@ -161,11 +177,26 @@ export default function Donors({ onSelect }) {
                     <td><span className="pill pill-blue">{d.data_category || d.category || 'General'}</span></td>
                   </tr>
                 ))}
-                {filtered.length === 0 && (
+                {paginated.length === 0 && (
                   <tr><td colSpan={10} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>No donors found</td></tr>
                 )}
               </tbody>
             </table>
+          )}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '16px 0' }}>
+              <button className="btn btn-sm btn-outline" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                Previous
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                <button key={p} className={`btn btn-sm ${p === page ? 'btn-primary' : 'btn-outline'}`} onClick={() => setPage(p)} style={{ minWidth: 36 }}>
+                  {p}
+                </button>
+              ))}
+              <button className="btn btn-sm btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                Next
+              </button>
+            </div>
           )}
         </div>
       </div>
