@@ -1214,3 +1214,65 @@ export const acknowledgeAlert = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+
+export const getDataRequests = async (req, res) => {
+  try {
+    const ngoIds = await getUserNgoIds(req.user);
+    if (ngoIds.length === 0) return res.json([]);
+
+    const { data, error } = await supabase
+      .from('fro_data_requests')
+      .select('*, workers(name, login_id)')
+      .in('ngo_id', ngoIds)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const result = (data || []).map(r => ({
+      id: r.id,
+      fro_worker_id: r.fro_worker_id,
+      worker_name: r.workers?.name || 'Unknown',
+      worker_login: r.workers?.login_id || '',
+      message: r.message,
+      status: r.status,
+      admin_response: r.admin_response,
+      created_at: r.created_at,
+      resolved_at: r.resolved_at,
+    }));
+
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const resolveDataRequest = async (req, res) => {
+  try {
+    const requestId = parseInt(req.params.id);
+    const ngoIds = await getUserNgoIds(req.user);
+
+    const { data: request } = await supabase
+      .from('fro_data_requests')
+      .select('ngo_id')
+      .eq('id', requestId)
+      .maybeSingle();
+
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    if (!ngoIds.includes(request.ngo_id)) return res.status(403).json({ message: 'Access denied' });
+
+    const { response } = req.body;
+    const { error } = await supabase
+      .from('fro_data_requests')
+      .update({
+        status: 'resolved',
+        admin_response: response || null,
+        resolved_at: new Date().toISOString(),
+      })
+      .eq('id', requestId);
+
+    if (error) throw error;
+    return res.json({ message: 'Request resolved successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};

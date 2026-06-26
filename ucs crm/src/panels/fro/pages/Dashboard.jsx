@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
-import { getMyDashboard } from '../api/donors'
+import { getMyDashboard, requestMoreData, getFollowUps, getLeadStats, getMonthlyDonors } from '../api/donors'
 import { getMyTarget } from '../api/target'
-import { requestMoreData } from '../api/donors'
 import { SkeletonDashboard } from '../../../components/Skeleton'
 import { cacheGet, cacheSet } from '../../../utils/cache'
 
@@ -25,15 +24,31 @@ export default function Dashboard() {
   const [reqMsg, setReqMsg] = useState('')
   const [sending, setSending] = useState(false)
   const [reqDone, setReqDone] = useState(false)
+  const [followUps, setFollowUps] = useState([])
+  const [leadStats, setLeadStats] = useState(null)
+  const [monthlyDonors, setMonthlyDonors] = useState([])
+  const [showMonthlyModal, setShowMonthlyModal] = useState(false)
+
+  const today = new Date()
+  const day = today.getDate()
+  const monthStr = today.toISOString().slice(0, 7)
+  const isMonthlyPopupSeason = day >= 1 && day <= 3
 
   useEffect(() => {
     Promise.all([
       getMyDashboard().catch(() => null),
       getMyTarget().catch(() => null),
-    ]).then(([d, t]) => {
+      getFollowUps().catch(() => []),
+      getLeadStats(monthStr).catch(() => null),
+      isMonthlyPopupSeason ? getMonthlyDonors(monthStr).catch(() => []) : Promise.resolve([]),
+    ]).then(([d, t, f, ls, md]) => {
       setDashData(d)
       setTargetData(t)
+      setFollowUps(f || [])
+      setLeadStats(ls)
+      setMonthlyDonors(md || [])
       if (d || t) cacheSet(CACHE_KEY, { dash: d, target: t }, 30000)
+      if (isMonthlyPopupSeason && md?.length > 0) setShowMonthlyModal(true)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -61,15 +76,6 @@ export default function Dashboard() {
   const collected = ts.collected || ds.collected || 0
   const remaining = ts.remaining || Math.max(0, target - collected)
   const progress = target > 0 ? Math.min(100, (collected / target) * 100) : 0
-  const inc = ts.incentive || {}
-
-  const sourceLabel = {
-    auto: 'Auto-calculated (based on salary & joining date)',
-    manual: 'Set by NGO Admin',
-    not_set: 'Not set by NGO Admin yet',
-  }
-
-  const mainBox = { border:'1px solid var(--line)', borderRadius:16, padding:'18px 20px', display:'flex', flexDirection:'column', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.04)' }
 
   const pieData = ts.stats
     ? Object.entries(ts.stats).filter(([k]) => k !== 'total').map(([k, v]) => ({
@@ -79,103 +85,112 @@ export default function Dashboard() {
       }))
     : []
 
-  const barData = [
+  const barData = target > 0 ? [
     { name: 'Target', amount: target, fill: '#94a3b8' },
     { name: 'Collected', amount: collected, fill: '#34d399' },
     { name: 'Remaining', amount: remaining, fill: '#f87171' },
-  ]
+  ] : []
 
   return (
     <div className="bento-grid">
-      {/* Hero row */}
+      {/* Hero row: target, collected, remaining */}
       <div className="bento-col-4">
-        <div style={mainBox}>
+        <div style={{ border:'1px solid var(--line)', borderRadius:16, padding:'18px 20px', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.04)', display:'flex', flexDirection:'column' }}>
+          <div style={{ fontSize:10, fontWeight:600, textTransform:'uppercase', letterSpacing:.5, color:'var(--md-outline)', marginBottom:2 }}>Monthly Target</div>
+          <div style={{ fontSize:32, fontWeight:800, color:'var(--ink)', lineHeight:1.2, marginBottom:4 }}>{currency(target)}</div>
+          <div style={{ fontSize:10, color:'var(--ink-soft)' }}>
+            {ts.target_source === 'not_set' ? 'Not set by admin' : `${progress.toFixed(0)}% achieved`}
+          </div>
+        </div>
+      </div>
+      <div className="bento-col-4">
+        <div style={{ border:'1px solid var(--line)', borderRadius:16, padding:'18px 20px', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.04)', display:'flex', flexDirection:'column' }}>
           <div style={{ fontSize:10, fontWeight:600, textTransform:'uppercase', letterSpacing:.5, color:'var(--md-outline)', marginBottom:2 }}>Collected</div>
-          <div style={{ fontSize:28, fontWeight:800, color:'var(--sage)', lineHeight:1.2 }}>{currency(collected)}</div>
-          <div style={{ marginTop:8, height:4, borderRadius:2, background:'var(--md-outline-variant)', overflow:'hidden' }}>
+          <div style={{ fontSize:32, fontWeight:800, color:'var(--sage)', lineHeight:1.2, marginBottom:4 }}>{currency(collected)}</div>
+          <div style={{ height:4, borderRadius:2, background:'var(--md-outline-variant)', overflow:'hidden' }}>
             <div style={{ height:'100%', borderRadius:2, background:'var(--sage)', width:`${progress}%`, transition:'width .4s' }} />
           </div>
-          <div style={{ marginTop:6, fontSize:10, color:'var(--ink-soft)' }}>{progress.toFixed(0)}% of target achieved</div>
         </div>
       </div>
       <div className="bento-col-4">
-        <div style={mainBox}>
-          <div style={{ fontSize:10, fontWeight:600, textTransform:'uppercase', letterSpacing:.5, color:'var(--md-outline)', marginBottom:2 }}>Monthly Target</div>
-          <div style={{ fontSize:28, fontWeight:800, color:'var(--ink)', lineHeight:1.2 }}>{currency(target)}</div>
-          <div style={{ marginTop:8, fontSize:10, color:'var(--ink-soft)' }}>
-            {ts.target_source ? <>Source: {sourceLabel[ts.target_source] || ts.target_source}</> : '—'}
-          </div>
-        </div>
-      </div>
-      <div className="bento-col-4">
-        <div style={mainBox}>
+        <div style={{ border:'1px solid var(--line)', borderRadius:16, padding:'18px 20px', background:'#fff', boxShadow:'0 1px 4px rgba(0,0,0,.04)', display:'flex', flexDirection:'column' }}>
           <div style={{ fontSize:10, fontWeight:600, textTransform:'uppercase', letterSpacing:.5, color:'var(--md-outline)', marginBottom:2 }}>Remaining</div>
-          <div style={{ fontSize:28, fontWeight:800, color: remaining > 0 ? '#e53e3e' : 'var(--sage)', lineHeight:1.2 }}>{currency(remaining)}</div>
-          <div style={{ marginTop:8, fontSize:10, color:'var(--ink-soft)' }}>
-            {remaining > 0 ? `Need ${currency(remaining)} more to hit target` : 'Target achieved!'}
+          <div style={{ fontSize:32, fontWeight:800, color: remaining > 0 ? '#e53e3e' : 'var(--sage)', lineHeight:1.2, marginBottom:4 }}>{currency(remaining)}</div>
+          <div style={{ fontSize:10, color:'var(--ink-soft)' }}>
+            {remaining > 0 ? `${currency(remaining)} more to hit target` : 'Target achieved!'}
           </div>
         </div>
       </div>
 
-      {/* Secondary stats row */}
+      {/* Metric cards row 1: Connected & Donations */}
+      <div className="bento-col-3">
+        <div className="bento-card">
+          <div className="m3-stat">
+            <div className="m3-stat-num" style={{color:'var(--sage)'}}>{ds.monthly_connected ?? stats.contacted ?? 0}</div>
+            <div className="m3-stat-lbl">Monthly Connected</div>
+          </div>
+        </div>
+      </div>
+      <div className="bento-col-3">
+        <div className="bento-card">
+          <div className="m3-stat">
+            <div className="m3-stat-num" style={{color:'#3b82f6'}}>{ds.daily_connected ?? 0}</div>
+            <div className="m3-stat-lbl">Daily Connected</div>
+          </div>
+        </div>
+      </div>
+      <div className="bento-col-3">
+        <div className="bento-card">
+          <div className="m3-stat">
+            <div className="m3-stat-num" style={{color:'var(--sage)'}}>{currency(collected)}</div>
+            <div className="m3-stat-lbl">Monthly Donations</div>
+          </div>
+        </div>
+      </div>
+      <div className="bento-col-3">
+        <div className="bento-card">
+          <div className="m3-stat">
+            <div className="m3-stat-num" style={{color:'#3b82f6'}}>{currency(ds.daily_donations ?? 0)}</div>
+            <div className="m3-stat-lbl">Daily Donations</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Metric cards row 2: Usage & Totals */}
+      <div className="bento-col-3">
+        <div className="bento-card">
+          <div className="m3-stat">
+            <div className="m3-stat-num" style={{color:'#16a34a'}}>{ds.data_used ?? (stats.contacted ?? 0) + (stats.donation_collected ?? 0) + (stats.follow_up ?? 0)}</div>
+            <div className="m3-stat-lbl">Data Used</div>
+          </div>
+        </div>
+      </div>
+      <div className="bento-col-3">
+        <div className="bento-card">
+          <div className="m3-stat">
+            <div className="m3-stat-num" style={{color:'#f87171'}}>{ds.data_unused ?? (stats.pending ?? 0) + (stats.not_reachable ?? 0) + (stats.not_interested ?? 0)}</div>
+            <div className="m3-stat-lbl">Data Unused</div>
+          </div>
+        </div>
+      </div>
+      <div className="bento-col-3">
+        <div className="bento-card">
+          <div className="m3-stat">
+            <div className="m3-stat-num" style={{color:'var(--sage)'}}>{currency(ds.total_donations ?? collected)}</div>
+            <div className="m3-stat-lbl">Total Donations</div>
+          </div>
+        </div>
+      </div>
       <div className="bento-col-3">
         <div className="bento-card">
           <div className="m3-stat">
             <div className="m3-stat-num">{stats.total ?? ts.stats?.total ?? 0}</div>
-            <div className="m3-stat-lbl">Assigned Donors</div>
+            <div className="m3-stat-lbl">Assigned Data</div>
           </div>
         </div>
       </div>
-      <div className="bento-col-3">
-        <div className="bento-card">
-          <div className="m3-stat">
-            <div className="m3-stat-num">{stats.contacted ?? 0}</div>
-            <div className="m3-stat-lbl">Contacted</div>
-          </div>
-        </div>
-      </div>
-      <div className="bento-col-3">
-        <div className="bento-card">
-          <div className="m3-stat">
-            <div className="m3-stat-num">{stats.donation_collected ?? 0}</div>
-            <div className="m3-stat-lbl">Donations</div>
-          </div>
-        </div>
-      </div>
-      <div className="bento-col-3">
-        <div className="bento-card">
-          <div className="m3-stat">
-            <div className="m3-stat-num" style={{ color:'var(--amber)' }}>{currency(inc.totalAKI)}</div>
-            <div className="m3-stat-lbl">Total AKI</div>
-          </div>
-        </div>
-      </div>
-      <div className="bento-col-3">
-        <div className="bento-card">
-          <div className="m3-stat">
-            <div className="m3-stat-num" style={{ color: inc.targetMet ? 'var(--sage)' : 'var(--ink-soft)' }}>{currency(inc.akiPayout)}</div>
-            <div className="m3-stat-lbl">AKI Payout {!inc.targetMet && <span style={{fontSize:9, color:'var(--ink-soft)'}}>(target not met)</span>}</div>
-          </div>
-        </div>
-      </div>
-      <div className="bento-col-3">
-        <div className="bento-card">
-          <div className="m3-stat">
-            <div className="m3-stat-num" style={{ color: inc.targetMet ? 'var(--sage)' : 'var(--ink-soft)' }}>{currency(inc.monthlyIncentive)}</div>
-            <div className="m3-stat-lbl">Monthly 10%</div>
-          </div>
-        </div>
-      </div>
-      <div className="bento-col-3">
-        <div className="bento-card" style={{ background: inc.targetMet ? 'var(--sage)' : 'var(--bg)', color: inc.targetMet ? '#fff' : 'var(--ink)' }}>
-          <div className="m3-stat">
-            <div className="m3-stat-num">{currency(inc.totalIncentive)}</div>
-            <div className="m3-stat-lbl" style={{ color: inc.targetMet ? 'rgba(255,255,255,.7)' : undefined }}>
-              {inc.isNewJoiner ? 'Incentive (New Joiner)' : 'Total Incentive'}
-            </div>
-          </div>
-        </div>
-      </div>
+
+      {/* Request Data banner */}
       <div className="bento-col-12">
         <div className="bento-card" style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between', padding:'12px 16px' }}>
           <div>
@@ -191,24 +206,26 @@ export default function Dashboard() {
       </div>
 
       {/* Chart row */}
-      <div className="bento-col-7">
-        <div className="bento-card">
-          <div className="bento-card-h"><h3>Target vs Collection</h3></div>
-          <div style={{ width:'100%', height:220 }}>
-            <ResponsiveContainer>
-              <BarChart data={barData} margin={{ top:8, right:8, left:-8, bottom:4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="name" tick={{ fontSize:11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize:10 }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + (v / 1000).toFixed(0) + 'k'} />
-                <Tooltip formatter={(v) => [currency(v), 'Amount']} contentStyle={{ fontSize:11, borderRadius:8, border:'1px solid #e2e8f0' }} />
-                <Bar dataKey="amount" radius={[6,6,0,0]} barSize={48}>
-                  {barData.map((e, i) => <Cell key={i} fill={e.fill} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+      {barData.length > 0 && (
+        <div className="bento-col-7">
+          <div className="bento-card">
+            <div className="bento-card-h"><h3>Target vs Collection</h3></div>
+            <div style={{ width:'100%', height:220 }}>
+              <ResponsiveContainer>
+                <BarChart data={barData} margin={{ top:8, right:8, left:-8, bottom:4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="name" tick={{ fontSize:11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize:10 }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + (v / 1000).toFixed(0) + 'k'} />
+                  <Tooltip formatter={(v) => [currency(v), 'Amount']} contentStyle={{ fontSize:11, borderRadius:8, border:'1px solid #e2e8f0' }} />
+                  <Bar dataKey="amount" radius={[6,6,0,0]} barSize={48}>
+                    {barData.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
-      </div>
+      )}
       <div className="bento-col-5">
         <div className="bento-card">
           <div className="bento-card-h"><h3>Donor Status</h3></div>
@@ -238,6 +255,97 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Follow-ups section */}
+      <div className="bento-col-6">
+        <div className="bento-card" style={{ flex:1 }}>
+          <div className="bento-card-h"><h3>Follow-ups Today</h3></div>
+          {followUps.length === 0 ? (
+            <div style={{ textAlign:'center', padding:20, color:'var(--md-outline)', fontSize:11 }}>No follow-ups scheduled for today.</div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+              {followUps.map(fu => (
+                <div key={fu.id} style={{
+                  display:'flex', alignItems:'center', gap:8, padding:'6px 8px', borderRadius:8,
+                  background: fu.is_overdue ? '#fef2f2' : '#f0fdf4',
+                  border: '1px solid ' + (fu.is_overdue ? '#fecaca' : '#bbf7d0'),
+                }}>
+                  <span style={{ fontSize:10, fontWeight:600, color:'var(--ink-soft)', minWidth:50 }}>
+                    {new Date(fu.scheduled_at).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}
+                  </span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:11, fontWeight:600 }}>{fu.donor_name}</div>
+                    <div style={{ fontSize:9, color:'var(--md-outline)' }}>{fu.donor_mobile}</div>
+                  </div>
+                  {fu.ngo_name && <span className="bento-pill bento-pill-gray" style={{fontSize:8}}>{fu.ngo_name}</span>}
+                  {fu.is_overdue && <span className="bento-pill" style={{background:'#f87171', color:'#fff', fontSize:8}}>Overdue</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Lead Stats */}
+      <div className="bento-col-6">
+        <div className="bento-card" style={{ flex:1 }}>
+          <div className="bento-card-h"><h3>Lead Stats — {monthStr}</h3></div>
+          {leadStats ? (
+            <div style={{ display:'flex', gap:12 }}>
+              <div style={{ flex:1, padding:12, borderRadius:8, background:'#eff6ff', border:'1px solid #bfdbfe' }}>
+                <div style={{ fontSize:9, textTransform:'uppercase', fontWeight:600, color:'#3b82f6', marginBottom:2 }}>New Donors</div>
+                <div style={{ fontSize:20, fontWeight:800, color:'#1d4ed8' }}>{leadStats.new_donors}</div>
+                <div style={{ fontSize:10, color:'#3b82f6' }}>₹{Number(leadStats.new_amount).toLocaleString('en-IN')}</div>
+              </div>
+              <div style={{ flex:1, padding:12, borderRadius:8, background:'#f0fdf4', border:'1px solid #bbf7d0' }}>
+                <div style={{ fontSize:9, textTransform:'uppercase', fontWeight:600, color:'#16a34a', marginBottom:2 }}>Existing Donors</div>
+                <div style={{ fontSize:20, fontWeight:800, color:'#15803d' }}>{leadStats.existing_donors}</div>
+                <div style={{ fontSize:10, color:'#16a34a' }}>₹{Number(leadStats.existing_amount).toLocaleString('en-IN')}</div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign:'center', padding:20, color:'var(--md-outline)', fontSize:11 }}>No lead data for this month.</div>
+          )}
+        </div>
+      </div>
+
+      {/* Monthly Donor Popup modal */}
+      {showMonthlyModal && monthlyDonors.length > 0 && (
+        <div style={{ position:'fixed', inset:0, zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,.4)' }} onClick={() => setShowMonthlyModal(false)}>
+          <div style={{ background:'#fff', borderRadius:12, width:480, maxHeight:'70vh', display:'flex', flexDirection:'column', boxShadow:'0 8px 32px rgba(0,0,0,.15)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding:'16px 20px', borderBottom:'1px solid var(--line)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div>
+                <div style={{ fontSize:14, fontWeight:700 }}>Monthly Recurring Donors</div>
+                <div style={{ fontSize:10, color:'var(--ink-soft)' }}>{monthStr} — Donors with 3+ donations history</div>
+              </div>
+              <button onClick={() => setShowMonthlyModal(false)}
+                style={{ width:28, height:28, border:'none', borderRadius:6, background:'var(--bg)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, lineHeight:1 }}>
+                ×
+              </button>
+            </div>
+            <div style={{ overflow:'auto', padding:8, flex:1 }}>
+              {monthlyDonors.map(d => (
+                <div key={`${d.donor_id}-${d.ngo_id}`} style={{
+                  display:'flex', alignItems:'center', gap:10, padding:'8px 12px', marginBottom:4, borderRadius:8,
+                  background:'var(--bg)', border:'1px solid var(--line)',
+                }}>
+                  <div style={{ width:32, height:32, borderRadius:'50%', background:'var(--sage)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, flexShrink:0 }}>
+                    {d.donor_name?.charAt(0) || '?'}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:11, fontWeight:600 }}>{d.donor_name}</div>
+                    <div style={{ fontSize:9, color:'var(--md-outline)' }}>{d.donor_mobile}{d.donor_city ? ` · ${d.donor_city}` : ''}</div>
+                  </div>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontSize:10, fontWeight:600 }}>₹{Number(d.amount).toLocaleString('en-IN')}</div>
+                    <div style={{ fontSize:8, color:'var(--md-outline)' }}>{d.donation_count} donations</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Request More Data modal */}
       {showRequest && (

@@ -24,6 +24,8 @@ import {
   distributeNewData,
   getAlerts,
   acknowledgeAlert,
+  getDataRequests,
+  resolveDataRequest,
 } from '../controllers/ngoAdminController.js';
 
 const router = Router();
@@ -56,5 +58,8 @@ router.post('/new-data/distribute', distributeNewData);
 
 router.get('/alerts', getAlerts);
 router.put('/alerts/:id/acknowledge', acknowledgeAlert);
+
+router.get('/database-requests', getDataRequests);
+router.put('/database-requests/:id/resolve', resolveDataRequest);
 
 export default router;

@@ -158,6 +158,35 @@ export const getDashboard = async (req, res) => {
       targetSource = manualTarget ? 'manual' : 'not_set';
     }
 
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const [monthlyConnectedRes, dailyConnectedRes, dailyDonationsRes, totalDonationsRes, assignmentsRes] = stationNames.length > 0
+      ? await Promise.all([
+          supabase.from('fro_donor_logs').select('donor_id, fro_assignments!inner(station)').in('fro_assignments.station', stationNames).gte('created_at', monthStart).lte('created_at', monthEnd),
+          supabase.from('fro_donor_logs').select('donor_id, fro_assignments!inner(station)').in('fro_assignments.station', stationNames).gte('created_at', todayStart.toISOString()).lte('created_at', todayEnd.toISOString()),
+          supabase.from('fro_donor_logs').select('amount_collected, fro_assignments!inner(station)').in('fro_assignments.station', stationNames).gte('created_at', todayStart.toISOString()).lte('created_at', todayEnd.toISOString()),
+          supabase.from('fro_donor_logs').select('amount_collected, fro_assignments!inner(station)').in('fro_assignments.station', stationNames),
+          supabase.from('fro_assignments').select('status').in('station', stationNames).not('status', 'eq', 'reassigned'),
+        ])
+      : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
+
+    const connectedStatuses = new Set(['contacted', 'donation_collected', 'lead_done', 'follow_up', 'scheduled', 'visit_donate', 'promise_to_pay', 'payment_pending', 'already_donated', 'language_barrier', 'transferred_senior', 'query_complaint', 'receipt_request']);
+    let dataUsed = 0, dataUnused = 0;
+    for (const a of assignmentsRes.data || []) {
+      if (connectedStatuses.has(a.status)) dataUsed++;
+      else dataUnused++;
+    }
+
+    const monthlyDonorIds = new Set((monthlyConnectedRes.data || []).map(l => l.donor_id).filter(Boolean));
+    const dailyDonorIds = new Set((dailyConnectedRes.data || []).map(l => l.donor_id).filter(Boolean));
+    let dailyDonations = 0;
+    for (const l of dailyDonationsRes.data || []) dailyDonations += parseFloat(l.amount_collected || 0);
+    let totalDonations = 0;
+    for (const l of totalDonationsRes.data || []) totalDonations += parseFloat(l.amount_collected || 0);
+
     return res.json({
       stats,
       target,
@@ -165,6 +194,12 @@ export const getDashboard = async (req, res) => {
       collected,
       salary: currentSalary,
       months_employed: monthsEmployed,
+      monthly_connected: monthlyDonorIds.size,
+      daily_connected: dailyDonorIds.size,
+      daily_donations: dailyDonations,
+      data_used: dataUsed,
+      data_unused: dataUnused,
+      total_donations: totalDonations,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -811,11 +846,227 @@ export const requestData = async (req, res) => {
     }
     const { data, error } = await supabase
       .from('fro_data_requests')
-      .insert([{ fro_worker_id: workerId, message: message.trim(), status: 'pending' }])
+      .insert([{ fro_worker_id: workerId, message: message.trim(), status: 'pending', ngo_id: req.user.ngo_id || null }])
       .select()
       .single();
     if (error) throw error;
     return res.json({ message: 'Request sent successfully', data });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getMyDataRequests = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const { data, error } = await supabase
+      .from('fro_data_requests')
+      .select('*')
+      .eq('fro_worker_id', workerId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return res.json(data || []);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getFollowUps = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const stationNames = await getMyStationNames(workerId);
+    if (stationNames.length === 0) return res.json([]);
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const { data: contacts, error } = await supabase
+      .from('fro_scheduled_contacts')
+      .select('*, fro_assignments!inner(id, donor_id, ngo_id, station,  ngos(name))')
+      .eq('is_completed', false)
+      .in('fro_assignments.station', stationNames)
+      .gte('scheduled_at', todayStart.toISOString())
+      .lte('scheduled_at', todayEnd.toISOString())
+      .order('scheduled_at', { ascending: true });
+
+    if (error) throw error;
+
+    const donorIds = [...new Set((contacts || []).map(c => c.fro_assignments?.donor_id).filter(Boolean))];
+    const { data: donors } = donorIds.length > 0
+      ? await supabase.from('donor_profiles').select('id, name, mobile_number').in('id', donorIds)
+      : { data: [] };
+    const donorMap = {};
+    for (const d of donors || []) donorMap[d.id] = d;
+
+    const now = new Date();
+    const result = (contacts || []).map(c => {
+      const a = c.fro_assignments;
+      const d = donorMap[a?.donor_id] || {};
+      return {
+        id: c.id,
+        donor_id: a?.donor_id,
+        ngo_id: a?.ngo_id,
+        ngo_name: a?.ngos?.name || '',
+        donor_name: d.name || 'Unknown',
+        donor_mobile: d.mobile_number || '',
+        scheduled_at: c.scheduled_at,
+        notes: c.notes,
+        assignment_id: a?.id,
+        is_overdue: new Date(c.scheduled_at) < now,
+      };
+    });
+
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getLeadStats = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const stationNames = await getMyStationNames(workerId);
+    if (stationNames.length === 0) return res.json({ new_donors: 0, new_amount: 0, existing_donors: 0, existing_amount: 0 });
+
+    const month = req.query.month || new Date().toISOString().slice(0, 7);
+    const monthStart = month + '-01';
+    const monthEndDate = new Date(new Date(monthStart).getFullYear(), new Date(monthStart).getMonth() + 1, 0);
+    const monthEnd = monthEndDate.toISOString().slice(0, 10) + 'T23:59:59.999Z';
+
+    const { data: logs, error } = await supabase
+      .from('fro_donor_logs')
+      .select('donor_id, amount_collected, fro_assignments!inner(id, station, donor_id)')
+      .eq('action', 'donation')
+      .in('fro_assignments.station', stationNames)
+      .gte('created_at', monthStart)
+      .lte('created_at', monthEnd);
+
+    if (error) throw error;
+
+    const donorIds = [...new Set((logs || []).map(l => l.donor_id).filter(Boolean))];
+    const { data: existingDonations } = donorIds.length > 0
+      ? await supabase
+          .from('fro_donor_logs')
+          .select('donor_id, amount_collected')
+          .in('donor_id', donorIds)
+          .eq('action', 'donation')
+          .lt('created_at', monthStart)
+      : { data: [] };
+
+    const existingSet = new Set((existingDonations || []).map(e => e.donor_id));
+
+    let newDonors = 0, newAmount = 0, existingDonors = 0, existingAmount = 0;
+    const seen = new Set();
+    for (const l of logs || []) {
+      if (seen.has(l.donor_id)) continue;
+      seen.add(l.donor_id);
+      const amount = parseFloat(l.amount_collected) || 0;
+      if (existingSet.has(l.donor_id)) {
+        existingDonors++;
+        existingAmount += amount;
+      } else {
+        newDonors++;
+        newAmount += amount;
+      }
+    }
+
+    return res.json({ new_donors: newDonors, new_amount: newAmount, existing_donors: existingDonors, existing_amount: existingAmount });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getMonthlyDonors = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const stationNames = await getMyStationNames(workerId);
+    if (stationNames.length === 0) return res.json([]);
+
+    const month = req.query.month || new Date().toISOString().slice(0, 7);
+
+    const monthStart = month + '-01';
+    const monthEndDate = new Date(new Date(monthStart).getFullYear(), new Date(monthStart).getMonth() + 1, 0);
+    const monthEnd = monthEndDate.toISOString().slice(0, 10) + 'T23:59:59.999Z';
+
+    const { data: assignments, error } = await supabase
+      .from('fro_assignments')
+      .select('*, donor_profiles!inner(id, name, mobile_number, amount, total_amount, donation_count, city), ngos(name)')
+      .in('station', stationNames)
+      .not('status', 'eq', 'reassigned')
+      .gte('donor_profiles.donation_count', 3);
+
+    if (error) throw error;
+
+    const { data: existingLogs } = await supabase
+      .from('fro_donor_logs')
+      .select('donor_id')
+      .in('donor_id', [...new Set((assignments || []).map(a => a.donor_id).filter(Boolean))])
+      .eq('action', 'donation')
+      .gte('created_at', monthStart)
+      .lte('created_at', monthEnd);
+
+    const alreadyDone = new Set((existingLogs || []).map(l => l.donor_id));
+
+    const seen = new Set();
+    const result = [];
+    for (const a of assignments || []) {
+      const key = `${a.donor_id}-${a.ngo_id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const d = a.donor_profiles;
+      if (!d || alreadyDone.has(d.id)) continue;
+      result.push({
+        donor_id: d.id,
+        ngo_id: a.ngo_id,
+        ngo_name: a.ngos?.name || '',
+        donor_name: d.name || 'Unknown',
+        donor_mobile: d.mobile_number || '',
+        donor_city: d.city || '',
+        amount: d.amount || 0,
+        total_donated: d.total_amount || 0,
+        donation_count: d.donation_count || 0,
+      });
+    }
+
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getDonorHistory = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const donorId = parseInt(req.params.id);
+    const period = req.query.period || 'monthly';
+
+    const now = new Date();
+    let startDate;
+    if (period === 'financial_year') {
+      const year = now.getFullYear();
+      startDate = now.getMonth() < 3 ? `${year - 1}-04-01` : `${year}-04-01`;
+    } else {
+      startDate = now.toISOString().slice(0, 7) + '-01';
+    }
+
+    const { data: logs, error } = await supabase
+      .from('fro_donor_logs')
+      .select('*')
+      .eq('donor_id', donorId)
+      .gte('created_at', startDate)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const { data: donors } = await supabase
+      .from('donor_profiles')
+      .select('id, name, mobile_number, amount, total_amount, donation_count, city, pan_number, email, address_1')
+      .eq('id', donorId)
+      .maybeSingle();
+
+    return res.json({ donor: donors || null, logs: logs || [] });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

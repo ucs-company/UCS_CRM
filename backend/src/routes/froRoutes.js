@@ -15,6 +15,11 @@ import {
   getFroCallbacks,
   getMyHistory,
   requestData,
+  getMyDataRequests,
+  getFollowUps,
+  getLeadStats,
+  getMonthlyDonors,
+  getDonorHistory,
 } from '../controllers/froController.js';
 
 const router = Router();
@@ -62,5 +67,10 @@ router.get('/history', getMyHistory);
 router.get('/target', getMyTarget);
 router.get('/debug/my-stations', debugMyStations);
 router.post('/request-data', requestData);
+router.get('/database-requests', getMyDataRequests);
+router.get('/follow-ups', getFollowUps);
+router.get('/lead-stats', getLeadStats);
+router.get('/monthly-donors', getMonthlyDonors);
+router.get('/donors/:id/history', getDonorHistory);
 
 export default router;

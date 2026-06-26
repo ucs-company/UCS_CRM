@@ -61,3 +61,26 @@ export async function markDonorSeen(donorId, ngoId) {
 export async function reportMissedSchedule(donorId, ngoId, scheduledAt) {
   return api('/fro/report-missed', { method: 'POST', body: JSON.stringify({ donor_id: donorId, ngo_id: ngoId, scheduled_at: scheduledAt }), _prefix: 'ucs' })
 }
+
+export async function getMyDataRequests() {
+  return api('/fro/database-requests', { _prefix: 'ucs' })
+}
+
+export async function getFollowUps() {
+  return api('/fro/follow-ups', { _prefix: 'ucs' })
+}
+
+export async function getLeadStats(month) {
+  const params = month ? `?month=${month}` : ''
+  return api(`/fro/lead-stats${params}`, { _prefix: 'ucs' })
+}
+
+export async function getMonthlyDonors(month) {
+  const params = month ? `?month=${month}` : ''
+  return api(`/fro/monthly-donors${params}`, { _prefix: 'ucs' })
+}
+
+export async function getDonorHistory(donorId, period) {
+  const params = period ? `?period=${period}` : ''
+  return api(`/fro/donors/${donorId}/history${params}`, { _prefix: 'ucs' })
+}
