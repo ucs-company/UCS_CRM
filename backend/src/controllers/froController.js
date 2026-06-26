@@ -805,33 +805,21 @@ export const getMyHistory = async (req, res) => {
 export const requestData = async (req, res) => {
   try {
     const workerId = req.user.id;
-    const froName = req.user.name || 'Unknown';
     const ngoId = req.user.ngo_id;
     const { message } = req.body;
     if (!message || !message.trim()) {
       return res.status(400).json({ message: 'Message is required' });
     }
+
+    const { data: worker } = await supabase.from('workers').select('name').eq('id', workerId).maybeSingle();
+    const froName = worker?.name || 'Unknown';
+
     const { data, error } = await supabase
       .from('fro_data_requests')
       .insert([{ fro_worker_id: workerId, message: message.trim(), status: 'pending' }])
       .select()
       .single();
     if (error) throw error;
-
-    try {
-      if (ngoId) {
-        await supabase.from('alerts').insert([{
-          ngo_id: ngoId,
-          type: 'data_request',
-          title: 'Data Request',
-          description: `${froName} requested more data: ${message.trim()}`,
-          fro_name: froName,
-          reference_id: data.id,
-        }]);
-      }
-    } catch (alertErr) {
-      console.error('[requestData] Failed to create alert:', alertErr.message);
-    }
 
     return res.json({ message: 'Request sent successfully', data });
   } catch (error) {

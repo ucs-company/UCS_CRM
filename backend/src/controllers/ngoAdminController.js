@@ -1176,38 +1176,47 @@ export const getAlerts = async (req, res) => {
     if (ngoIds.length === 0) return res.json({ alerts: [] });
 
     const results = [];
+    const workerNameMap = {};
+    const allWorkerIds = new Set();
 
-    const { data: requests, error: reqErr } = await supabase
-      .from('fro_data_requests')
-      .select('*, workers!inner(id, name, ngo_id)')
-      .in('workers.ngo_id', ngoIds)
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (!reqErr && requests) {
-      for (const r of requests) {
-        results.push({
-          id: `dr_${r.id}`,
-          ngo_id: r.workers?.ngo_id,
-          type: 'data_request',
-          title: 'Data Request',
-          description: r.message,
-          fro_name: r.workers?.name || 'Unknown',
-          created_at: r.created_at,
-          acknowledged: r.status !== 'pending',
-        });
+    for (const ngoId of ngoIds) {
+      const workers = await getFroWorkersByNgo(ngoId);
+      for (const w of workers) {
+        workerNameMap[w.id] = w.name || 'Unknown';
+        allWorkerIds.add(w.id);
+      }
+    }
+
+    if (allWorkerIds.size > 0) {
+      const { data: requests } = await supabase
+        .from('fro_data_requests')
+        .select('*')
+        .in('fro_worker_id', [...allWorkerIds])
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (requests) {
+        for (const r of requests) {
+          results.push({
+            id: `dr_${r.id}`,
+            type: 'data_request',
+            title: 'Data Request',
+            description: r.message,
+            fro_name: workerNameMap[r.fro_worker_id] || 'Unknown',
+            created_at: r.created_at,
+            acknowledged: r.status !== 'pending',
+          });
+        }
       }
     }
 
     try {
-      const { data: alerts, error: alertErr } = await supabase
+      const { data: alerts } = await supabase
         .from('alerts')
         .select('*')
         .in('ngo_id', ngoIds)
         .order('created_at', { ascending: false })
         .limit(100);
-      if (!alertErr && alerts) {
-        results.push(...alerts);
-      }
+      if (alerts) results.push(...alerts);
     } catch (_) {}
 
     results.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
@@ -1225,13 +1234,20 @@ export const acknowledgeAlert = async (req, res) => {
 
     if (typeof rawId === 'string' && rawId.startsWith('dr_')) {
       const realId = parseInt(rawId.replace('dr_', ''));
-      const { data: reqData } = await supabase
+      const { data: reqData, error: reqErr } = await supabase
         .from('fro_data_requests')
-        .select('id, workers!inner(ngo_id)')
+        .select('id, fro_worker_id')
         .eq('id', realId)
         .maybeSingle();
-      if (!reqData) return res.status(404).json({ message: 'Request not found' });
-      if (!ngoIds.includes(reqData.workers?.ngo_id)) return res.status(403).json({ message: 'Access denied' });
+      if (reqErr || !reqData) return res.status(404).json({ message: 'Request not found' });
+
+      const { data: worker } = await supabase
+        .from('workers')
+        .select('ngo_id')
+        .eq('id', reqData.fro_worker_id)
+        .maybeSingle();
+      if (!worker || !ngoIds.includes(worker.ngo_id)) return res.status(403).json({ message: 'Access denied' });
+
       await supabase.from('fro_data_requests').update({ status: 'acknowledged' }).eq('id', realId);
       return res.json({ message: 'Request acknowledged' });
     }
