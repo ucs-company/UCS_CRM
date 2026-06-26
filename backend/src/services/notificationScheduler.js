@@ -380,3 +380,64 @@ async function resetCycledDonors() {
 
 cron.schedule('0 0 * * *', () => resetCycledDonors());
 console.log('Scheduled: midnight check for 30-day donor follow-up cycle');
+
+async function autoReportMissedSchedules() {
+  try {
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+    const { data: contacts, error } = await supabase
+      .from('fro_scheduled_contacts')
+      .select('*, fro_assignments!inner(id, donor_id, ngo_id, fro_worker_id), workers!fro_assignments!inner(name)')
+      .eq('is_completed', false)
+      .eq('reminded', false)
+      .lt('scheduled_at', tenMinAgo);
+
+    if (error) throw error;
+    if (!contacts || contacts.length === 0) return;
+
+    const donorIds = [...new Set(contacts.map(c => c.fro_assignments?.donor_id).filter(Boolean))];
+    const { data: donors } = donorIds.length > 0
+      ? await supabase.from('donor_profiles').select('id, name').in('id', donorIds)
+      : { data: [] };
+    const donorMap = {};
+    for (const d of donors || []) donorMap[d.id] = d.name || 'Unknown';
+
+    for (const c of contacts) {
+      const a = c.fro_assignments;
+      if (!a) continue;
+      const donorName = donorMap[a.donor_id] || 'Unknown';
+      const froName = c.workers?.name || 'Unknown';
+
+      const { error: insErr } = await supabase
+        .from('alerts')
+        .insert([{
+          ngo_id: a.ngo_id,
+          type: 'missed_schedule',
+          title: 'Missed Schedule',
+          description: `${froName} missed a scheduled call to ${donorName} (scheduled at ${new Date(c.scheduled_at).toLocaleString('en-IN')}).`,
+          fro_name: froName,
+          donor_name: donorName,
+          reference_id: c.id,
+        }]);
+
+      if (insErr) {
+        console.error('[autoReportMissedSchedules] insert alert error:', insErr.message);
+        continue;
+      }
+
+      await supabase
+        .from('fro_scheduled_contacts')
+        .update({ reminded: true })
+        .eq('id', c.id);
+    }
+
+    if (contacts.length > 0) {
+      console.log(`[autoReportMissedSchedules] Reported ${contacts.length} missed schedules`);
+    }
+  } catch (error) {
+    console.error('[autoReportMissedSchedules] Error:', error.message);
+  }
+}
+
+cron.schedule('* * * * *', () => autoReportMissedSchedules());
+console.log('Scheduled: every-minute check for missed schedules (10 min overdue)');

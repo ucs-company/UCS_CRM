@@ -22,6 +22,8 @@ import {
   getDonorsByStation,
   getNewData,
   distributeNewData,
+  getAlerts,
+  acknowledgeAlert,
 } from '../controllers/ngoAdminController.js';
 
 const router = Router();
@@ -51,5 +53,8 @@ router.delete('/stations/:station', removeStationByName);
 
 router.get('/new-data', getNewData);
 router.post('/new-data/distribute', distributeNewData);
+
+router.get('/alerts', getAlerts);
+router.put('/alerts/:id/acknowledge', acknowledgeAlert);
 
 export default router;

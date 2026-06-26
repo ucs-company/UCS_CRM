@@ -190,9 +190,7 @@ export const getMyDonors = async (req, res) => {
     if (statusFilter) {
       query = query.eq('status', statusFilter);
     } else {
-      // Default (My Leads): exclude terminal statuses so they only reappear
-      // after the 30-day cron resets them to pending
-      query = query.not('status', 'eq', 'lead_done').not('status', 'eq', 'donation_collected');
+      query = query.eq('status', 'pending');
     }
 
     const { data: assignments } = await query;
@@ -205,8 +203,19 @@ export const getMyDonors = async (req, res) => {
       .select('*')
       .in('id', donorIds);
 
-    const donorMap = {};
-    for (const d of donors || []) donorMap[d.id] = d;
+    const assignmentIds = assignments.map(a => a.id);
+    const { data: schedules } = await supabase
+      .from('fro_scheduled_contacts')
+      .select('*')
+      .in('assignment_id', assignmentIds)
+      .eq('is_completed', false);
+
+    const scheduleMap = {};
+    for (const s of schedules || []) {
+      if (!scheduleMap[s.assignment_id]) {
+        scheduleMap[s.assignment_id] = s;
+      }
+    }
 
     const result = [];
     const seen = new Set();
@@ -216,6 +225,7 @@ export const getMyDonors = async (req, res) => {
       const key = `${a.donor_id}-${a.ngo_id}`;
       if (seen.has(key)) continue;
       seen.add(key);
+      const s = scheduleMap[a.id];
       result.push({
         id: a.donor_id,
         donor_id: a.donor_id,
@@ -240,10 +250,10 @@ export const getMyDonors = async (req, res) => {
         next_follow_up: a.next_follow_up || null,
         assigned_at: a.assigned_at || null,
         is_new: a.is_new !== false,
-        next_scheduled_at: null,
-        is_overdue: false,
-        schedule_id: null,
-        schedule_notes: null,
+        next_scheduled_at: s?.scheduled_at || null,
+        is_overdue: s ? new Date(s.scheduled_at) < new Date() : false,
+        schedule_id: s?.id || null,
+        schedule_notes: s?.notes || null,
       });
     }
 
@@ -385,11 +395,12 @@ export const createDonorLogHandler = async (req, res) => {
         last_contacted_at: now,
       });
     } else if (action === 'disposition' && disposition_detail) {
+      await completeAllScheduledByAssignment(assignment.id);
+
       const statusFromDetail = dispositionDetailToStatus(disposition_detail);
       const statusUpdates = { status: statusFromDetail, last_contacted_at: now };
 
       if (disposition_detail === 'scheduled' && scheduled_at) {
-        await completeAllScheduledByAssignment(assignment.id);
         await createScheduledContact({
           assignment_id: assignment.id,
           scheduled_at,
@@ -638,6 +649,133 @@ export const debugMyStations = async (req, res) => {
     });
   } catch (error) {
     console.error('debugMyStations error:', error.message);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getFroScheduled = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const stationNames = await getMyStationNames(workerId);
+    if (stationNames.length === 0) return res.json([]);
+
+    const { data: contacts, error } = await supabase
+      .from('fro_scheduled_contacts')
+      .select('*, fro_assignments!inner(id, donor_id, ngo_id, station, ngos(name), fro_worker_id), donor_profiles!fro_assignments!inner(name, mobile_number)')
+      .eq('is_completed', false)
+      .in('fro_assignments.station', stationNames)
+      .order('scheduled_at', { ascending: true });
+
+    if (error) throw error;
+
+    const seen = new Set();
+    const result = [];
+    for (const c of contacts || []) {
+      const a = c.fro_assignments;
+      const d = c.donor_profiles;
+      if (!a || !d) continue;
+      const key = `${a.donor_id}-${a.ngo_id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({
+        id: a.donor_id,
+        ngo_id: a.ngo_id,
+        donor_name: d.name || 'Unknown',
+        donor_mobile: d.mobile_number || '',
+        scheduled_at: c.scheduled_at,
+        schedule_id: c.id,
+        schedule_notes: c.notes,
+        assignment_id: a.id,
+      });
+    }
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getFroCallbacks = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const stationNames = await getMyStationNames(workerId);
+    if (stationNames.length === 0) return res.json([]);
+
+    const { data: assignments, error } = await supabase
+      .from('fro_assignments')
+      .select('*, donor_profiles!inner(name, mobile_number), ngos(name)')
+      .in('station', stationNames)
+      .in('status', ['follow_up', 'scheduled'])
+      .not('status', 'eq', 'reassigned');
+
+    if (error) throw error;
+
+    const assignmentIds = (assignments || []).map(a => a.id);
+    const { data: activeSchedules } = assignmentIds.length > 0
+      ? await supabase.from('fro_scheduled_contacts').select('assignment_id').in('assignment_id', assignmentIds).eq('is_completed', false)
+      : { data: [] };
+
+    const activeAssignmentIds = new Set((activeSchedules || []).map(s => s.assignment_id));
+
+    const seen = new Set();
+    const result = [];
+    for (const a of assignments || []) {
+      if (activeAssignmentIds.has(a.id)) continue;
+      const d = a.donor_profiles;
+      if (!d) continue;
+      const key = `${a.donor_id}-${a.ngo_id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push({
+        id: a.donor_id,
+        ngo_id: a.ngo_id,
+        donor_name: d.name || 'Unknown',
+        donor_mobile: d.mobile_number || '',
+        status: a.status,
+        next_follow_up: a.next_follow_up,
+        assignment_id: a.id,
+      });
+    }
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getMyHistory = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const stationNames = await getMyStationNames(workerId);
+    if (stationNames.length === 0) return res.json([]);
+
+    const { data: logs, error } = await supabase
+      .from('fro_donor_logs')
+      .select('*, fro_assignments!inner(fro_worker_id, donor_id, station), donor_profiles!fro_assignments!inner(name, mobile_number)')
+      .eq('fro_assignments.fro_worker_id', workerId)
+      .in('fro_assignments.station', stationNames)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+
+    const result = (logs || []).map(l => {
+      const d = l.donor_profiles || {};
+      return {
+        id: l.id,
+        donor_id: l.donor_id,
+        donor_name: d.name || 'Unknown',
+        donor_mobile: d.mobile_number || '',
+        action: l.action,
+        disposition_category: l.disposition_category,
+        disposition_detail: l.disposition_detail,
+        notes: l.notes,
+        amount_collected: l.amount_collected,
+        created_at: l.created_at,
+        outcome: l.outcome,
+        accounts_status: l.accounts_status,
+      };
+    });
+    return res.json(result);
+  } catch (error) {
     return res.status(500).json({ message: error.message });
   }
 };

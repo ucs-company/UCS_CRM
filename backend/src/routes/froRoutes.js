@@ -11,6 +11,9 @@ import {
   scheduleContact,
   uploadPaymentScreenshot,
   debugMyStations,
+  getFroScheduled,
+  getFroCallbacks,
+  getMyHistory,
 } from '../controllers/froController.js';
 
 const router = Router();
@@ -52,6 +55,9 @@ router.get('/donors/:id/logs', getDonorLogs);
 router.post('/donors/:id/logs', createDonorLogHandler);
 router.post('/donors/:id/schedule', scheduleContact);
 router.post('/upload-payment-screenshot', uploadPaymentScreenshot);
+router.get('/scheduled', getFroScheduled);
+router.get('/callbacks', getFroCallbacks);
+router.get('/history', getMyHistory);
 router.get('/target', getMyTarget);
 router.get('/debug/my-stations', debugMyStations);
 

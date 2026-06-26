@@ -37,6 +37,10 @@ export async function getMyDashboard() {
   return api('/fro/dashboard', { _prefix: 'ucs' })
 }
 
+export async function getMyHistory() {
+  return api('/fro/history', { _prefix: 'ucs' })
+}
+
 export async function requestMoreData(message) {
   return api('/fro/request-data', { method: 'POST', body: JSON.stringify({ message }), _prefix: 'ucs' })
 }

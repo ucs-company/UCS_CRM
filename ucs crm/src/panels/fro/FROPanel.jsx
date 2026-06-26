@@ -6,12 +6,14 @@ import MyDonors from './pages/MyDonors'
 import Donors from './pages/Donors'
 import Scheduled from './pages/Scheduled'
 import IncentiveInfo from './pages/IncentiveInfo'
+import History from './pages/History'
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'scheduled', label: 'Scheduled / Callback', icon: 'calendar_month' },
   { id: 'my-leads', label: 'My Leads', icon: 'group' },
   { id: 'donors', label: 'Donors', icon: 'card_giftcard' },
+  { id: 'history', label: 'History', icon: 'history' },
   { id: 'incentive-info', label: 'Incentive Info', icon: 'emoji_events' },
 ]
 
@@ -107,6 +109,8 @@ export default function FROPanel() {
             <MyDonors />
           ) : active === 'donors' ? (
             <Donors />
+          ) : active === 'history' ? (
+            <History />
           ) : active === 'incentive-info' ? (
             <IncentiveInfo />
           ) : (

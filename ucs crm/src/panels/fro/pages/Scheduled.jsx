@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getMyDonors, getDonorDetail, addDonorLog, uploadPaymentScreenshot, reportMissedSchedule } from '../api/donors';
+import { getScheduled, getCallbacks, addDonorLog } from '../api/donors';
 import { SkeletonTable } from '../../../components/Skeleton';
 
 const TABS = [
@@ -112,24 +112,7 @@ function DispositionModal({ donorId, ngoId, donorName, scheduledAt: origSchedule
               style={{ width:'100%', padding:6, border:'1px solid var(--line)', borderRadius:5, fontSize:10, fontFamily:'inherit', resize:'none', boxSizing:'border-box' }} />
           </div>
         </div>
-        <div style={{ display:'flex', gap:8, justifyContent:'space-between', padding:'12px 16px', borderTop:'1px solid var(--line)' }}>
-          <div>
-            {isOverdue && (
-              <button onClick={async () => {
-                setSaving(true);
-                try {
-                  await reportMissedSchedule(donorId, ngoId, origScheduledAt);
-                  onDone();
-                  onClose();
-                } catch (err) {
-                  setMessage({ type:'error', text: err.message });
-                } finally { setSaving(false); }
-              }} disabled={saving}
-                style={{ padding:'7px 16px', border:'1px solid #fecaca', borderRadius:6, background:'#fff', fontSize:11, fontWeight:600, fontFamily:'inherit', cursor:'pointer', color:'#dc2626' }}>
-                {saving ? 'Reporting...' : 'Report as Missed'}
-              </button>
-            )}
-          </div>
+        <div style={{ display:'flex', gap:8, justifyContent:'flex-end', padding:'12px 16px', borderTop:'1px solid var(--line)' }}>
           <div style={{ display:'flex', gap:6 }}>
             <button onClick={onClose}
               style={{ padding:'7px 12px', border:'1px solid var(--line)', borderRadius:6, background:'#fff', fontSize:11, fontWeight:600, fontFamily:'inherit', cursor:'pointer' }}>Cancel</button>
@@ -156,26 +139,20 @@ export default function Scheduled() {
 
   const loadRows = () => {
     setLoading(true);
-    getMyDonors().then(async (list) => {
-      const detailResults = await Promise.allSettled(
-        list.map(d => getDonorDetail(d.id, d.ngo_id))
-      );
+    Promise.all([getScheduled(), getCallbacks()]).then(([scheduled, callbacks]) => {
       const items = [];
-      detailResults.forEach((r, i) => {
-        const d = list[i];
-        if (r.status === 'fulfilled' && r.value?.next_schedule && !r.value.next_schedule.is_completed) {
-          items.push({
-            id: d.id,
-            ngo_id: d.ngo_id,
-            donor_name: d.donor_name,
-            donor_mobile: d.donor_mobile,
-            scheduled_at: r.value.next_schedule.scheduled_at,
-            type: 'scheduled',
-          });
-        }
+      (scheduled || []).forEach(d => {
+        items.push({
+          id: d.id,
+          ngo_id: d.ngo_id,
+          donor_name: d.donor_name,
+          donor_mobile: d.donor_mobile,
+          scheduled_at: d.scheduled_at,
+          type: 'scheduled',
+        });
       });
-      list.forEach(d => {
-        if ((d.status === 'follow_up') && !items.find(i => i.id === d.id)) {
+      (callbacks || []).forEach(d => {
+        if (!items.find(i => i.id === d.id && i.ngo_id === d.ngo_id)) {
           items.push({
             id: d.id,
             ngo_id: d.ngo_id,

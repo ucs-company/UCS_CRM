@@ -1149,3 +1149,48 @@ export const distributeNewData = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+
+export const getAlerts = async (req, res) => {
+  try {
+    const ngoIds = await getUserNgoIds(req.user);
+    if (ngoIds.length === 0) return res.json({ alerts: [] });
+
+    const { data, error } = await supabase
+      .from('alerts')
+      .select('*')
+      .in('ngo_id', ngoIds)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+    return res.json({ alerts: data || [] });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const acknowledgeAlert = async (req, res) => {
+  try {
+    const alertId = parseInt(req.params.id);
+    const ngoIds = await getUserNgoIds(req.user);
+
+    const { data: alert } = await supabase
+      .from('alerts')
+      .select('ngo_id')
+      .eq('id', alertId)
+      .maybeSingle();
+
+    if (!alert) return res.status(404).json({ message: 'Alert not found' });
+    if (!ngoIds.includes(alert.ngo_id)) return res.status(403).json({ message: 'Access denied' });
+
+    const { error } = await supabase
+      .from('alerts')
+      .update({ acknowledged: true, acknowledged_at: new Date().toISOString() })
+      .eq('id', alertId);
+
+    if (error) throw error;
+    return res.json({ message: 'Alert acknowledged' });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
