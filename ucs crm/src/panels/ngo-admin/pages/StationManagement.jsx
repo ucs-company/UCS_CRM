@@ -338,10 +338,6 @@ export default function StationManagement() {
                     </td>
                     <td>
                       <span className="pill pill-blue">{s.donor_count}</span>
-                      {(() => {
-                        const at = activeTransfers.find(t => t.station === s.station);
-                        return at ? <span style={{ marginLeft: 6, fontSize: 11, color: '#b45309' }}>({at.donor_count} to {at.target_station})</span> : null;
-                      })()}
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
