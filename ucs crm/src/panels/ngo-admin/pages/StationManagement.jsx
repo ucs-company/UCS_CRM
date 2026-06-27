@@ -55,8 +55,8 @@ function TransferDataModal({ station, sourceName, sourceCount, stations, onClose
         target_station: targetStation,
         donor_count: count,
       });
-      if (onTransferred) onTransferred();
       onClose();
+      setTimeout(() => { if (onTransferred) onTransferred(); }, 600);
     } catch (err) {
       alert(err.message);
     } finally {
@@ -165,6 +165,13 @@ export default function StationManagement() {
   const [returningId, setReturningId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const [expandedTransfer, setExpandedTransfer] = useState(null);
+  const [msg, setMsg] = useState(null);
+
+  useEffect(() => {
+    if (!msg) return;
+    const t = setTimeout(() => setMsg(null), 3000);
+    return () => clearTimeout(t);
+  }, [msg]);
 
   const computeNextName = (existingStations) => {
     const nums = existingStations
@@ -183,20 +190,14 @@ export default function StationManagement() {
     }).catch(() => {});
   };
 
-  const fetchData = () => {
-    Promise.all([
-      apiGet('/ngo-admin/stations'),
-      apiGet('/ngo-admin/ngos'),
-      apiGet('/ngo-admin/fro-workers'),
-    ]).then(([s, n, f]) => {
-      const list = Array.isArray(s) ? s : [];
-      setStations(list);
-      setAllNgos(Array.isArray(n) ? n : []);
-      setFroWorkers(Array.isArray(f) ? f : []);
-      apiGet('/ngo-admin/transfers').then(t => {
-        setTransfers(Array.isArray(t) ? t : []);
-      }).catch(() => {});
-    }).catch(() => {});
+  const fetchData = (successMsg) => {
+    apiGet('/ngo-admin/stations').then(s => {
+      if (Array.isArray(s)) setStations(s);
+    }).catch(err => console.error('fetchData error:', err));
+    apiGet('/ngo-admin/transfers').then(t => {
+      setTransfers(Array.isArray(t) ? t : []);
+    }).catch(err => console.error('fetchData transfers error:', err));
+    if (successMsg) setMsg(successMsg);
   };
 
   useEffect(() => {
@@ -211,10 +212,10 @@ export default function StationManagement() {
       setAllNgos(Array.isArray(n) ? n : []);
       setFroWorkers(Array.isArray(f) ? f : []);
       setNewStation(computeNextName(list));
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch(err => console.error('Initial load error:', err)).finally(() => setLoading(false));
     apiGet('/ngo-admin/transfers').then(t => {
       setTransfers(Array.isArray(t) ? t : []);
-    }).catch(() => {});
+    }).catch(err => console.error('Initial transfers load error:', err));
   }, []);
 
   const activeTransfers = transfers.filter(t => !t.returned);
@@ -269,10 +270,7 @@ export default function StationManagement() {
     setReturningId(transferId);
     try {
       await apiPost(`/ngo-admin/transfers/${transferId}/return-early`);
-      fetchTransfers();
-      apiGet('/ngo-admin/stations').then(s => {
-        if (Array.isArray(s)) setStations(s);
-      }).catch(() => {});
+      setTimeout(() => fetchData('Leads returned successfully'), 400);
     } catch (err) {
       alert(err.message);
     } finally {
@@ -296,6 +294,12 @@ export default function StationManagement() {
 
   return (
     <div>
+      {msg && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>✓</span>
+          <span>{msg}</span>
+        </div>
+      )}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-head">
           <h3>Add Station</h3>
@@ -554,7 +558,7 @@ export default function StationManagement() {
           sourceCount={transferData.sourceCount}
           stations={stations}
           onClose={() => setTransferData(null)}
-          onTransferred={() => fetchData()}
+            onTransferred={() => fetchData('Transfer successful')}
         />
       )}
     </div>
