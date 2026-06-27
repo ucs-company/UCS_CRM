@@ -15,10 +15,11 @@ const STATUS_COLORS = {
   leave: '#3b82f6',
 };
 
-export default function NgoAttendance({ selectedWorker, onClear }) {
+export default function NgoAttendance() {
   const [records, setRecords] = useState([]);
   const [froWorkers, setFroWorkers] = useState([]);
   const [search, setSearch] = useState('');
+  const [workerFilter, setWorkerFilter] = useState(null);
   const [month, setMonth] = useState(() => {
     const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
@@ -29,10 +30,6 @@ export default function NgoAttendance({ selectedWorker, onClear }) {
     apiGet('/ngo-admin/fro-workers').then(setFroWorkers).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (selectedWorker) setSearch(selectedWorker.name);
-  }, [selectedWorker]);
-
   const froIds = new Set(froWorkers.map(w => w.id));
 
   const [year, m] = month.split('-');
@@ -41,8 +38,8 @@ export default function NgoAttendance({ selectedWorker, onClear }) {
     return d.startsWith(`${year}-${m}`) && froIds.has(r.worker_id);
   });
 
-  if (selectedWorker) {
-    filtered = filtered.filter(r => r.worker_id === selectedWorker.id);
+  if (workerFilter) {
+    filtered = filtered.filter(r => r.worker_id === workerFilter.id);
   } else if (search) {
     const s = search.toLowerCase();
     filtered = filtered.filter(r => (r.workers?.name || '').toLowerCase().includes(s));
@@ -60,8 +57,8 @@ export default function NgoAttendance({ selectedWorker, onClear }) {
             <input placeholder="Search worker…" value={search} onChange={e => setSearch(e.target.value)}
               style={{ fontSize: 13, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)', flex: 1, maxWidth: 240 }} />
             <span style={{ fontSize: 13, color: '#6b7280' }}>{filtered.length} record{filtered.length !== 1 ? 's' : ''}</span>
-            {selectedWorker && (
-              <button className="btn btn-sm btn-outline" onClick={() => { onClear?.(); setSearch(''); }}>View All Records</button>
+            {workerFilter && (
+              <button className="btn btn-sm btn-outline" onClick={() => { setWorkerFilter(null); setSearch(''); }}>View All Records</button>
             )}
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -80,7 +77,13 @@ export default function NgoAttendance({ selectedWorker, onClear }) {
                 {filtered.map(r => (
                   <tr key={r.id}>
                     <td style={{ padding: '8px 10px', borderBottom: '1px solid var(--line, #e5e7eb)', whiteSpace: 'nowrap', color: '#6b7280' }}>{r.date}</td>
-                    <td style={{ padding: '8px 10px', borderBottom: '1px solid var(--line, #e5e7eb)', fontWeight: 500 }}>{r.workers?.name || 'Unknown'}</td>
+                    <td style={{ padding: '8px 10px', borderBottom: '1px solid var(--line, #e5e7eb)', fontWeight: 500 }}>
+                      <span
+                        onClick={() => setWorkerFilter({ id: r.worker_id, name: r.workers?.name })}
+                        style={{ cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 2, color: workerFilter?.id === r.worker_id ? 'var(--sage, #5B6B4E)' : 'inherit' }}>
+                        {r.workers?.name || 'Unknown'}
+                      </span>
+                    </td>
                     <td style={{ padding: '8px 10px', borderBottom: '1px solid var(--line, #e5e7eb)' }}>{fmtTime(r.punch_in_time)}</td>
                     <td style={{ padding: '8px 10px', borderBottom: '1px solid var(--line, #e5e7eb)' }}>{fmtTime(r.punch_out_time)}</td>
                     <td style={{ padding: '8px 10px', borderBottom: '1px solid var(--line, #e5e7eb)', textAlign: 'center' }}>
