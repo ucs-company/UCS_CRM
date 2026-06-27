@@ -1,44 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/auth';
 
-function TransferDonorList({ transferId, onClose }) {
-  const [donors, setDonors] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    apiGet(`/ngo-admin/transfers/${transferId}/donors`)
-      .then(r => setDonors(Array.isArray(r) ? r : []))
-      .catch(() => setDonors([]))
-      .finally(() => setLoading(false));
-  }, [transferId]);
-
-  if (loading) return <div className="loading" style={{ padding: '20px 0' }}>Loading donors...</div>;
-
-  if (donors.length === 0) return <div className="empty-state" style={{ padding: '20px 0' }}>No donors found</div>;
-
-  return (
-    <table style={{ width: '100%', fontSize: 12 }}>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Mobile</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {donors.map(d => (
-          <tr key={d.id}>
-            <td>{d.name || '—'}</td>
-            <td>{d.mobile || '—'}</td>
-            <td><span className="pill pill-blue">{d.lead_status || d.status || '—'}</span></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
 function TransferDataModal({ station, sourceName, sourceCount, stations, onClose, onTransferred }) {
   const [targetStation, setTargetStation] = useState('');
   const [count, setCount] = useState(sourceCount);
@@ -163,8 +125,6 @@ export default function StationManagement() {
   const [transferData, setTransferData] = useState(null);
   const [transfers, setTransfers] = useState([]);
   const [returningId, setReturningId] = useState(null);
-  const [showHistory, setShowHistory] = useState(false);
-  const [expandedTransfer, setExpandedTransfer] = useState(null);
   const [msg, setMsg] = useState(null);
 
   useEffect(() => {
@@ -329,136 +289,6 @@ export default function StationManagement() {
         </div>
       </div>
 
-      {activeTransfers.length > 0 && (
-        <div className="card" style={{ marginBottom: 16, borderLeft: '3px solid var(--sage, #5B6B4E)' }}>
-          <div className="card-head">
-            <h3>Active Transfers</h3>
-            <span className="count">{activeTransfers.length}</span>
-          </div>
-          <div className="card-pad">
-            {activeTransfers.map(t => {
-              const timeLeft = t.auto_return_at ? new Date(t.auto_return_at) - new Date() : 0;
-              const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600000));
-              const minsLeft = Math.max(0, Math.floor((timeLeft % 3600000) / 60000));
-              const isExpanded = expandedTransfer === t.id;
-              return (
-                <div key={t.id}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--line, #e5e7eb)', fontSize: 13 }}>
-                    <div style={{ flex: 1 }}>
-                      <button className="btn btn-sm" onClick={() => setExpandedTransfer(isExpanded ? null : t.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginRight: 6, fontSize: 12, color: '#9ca3af' }}>
-                        {isExpanded ? '▼' : '▶'}
-                      </button>
-                      <strong>{t.station}</strong> → <strong>{t.target_station}</strong>
-                      <span style={{ marginLeft: 8, color: '#6b7280' }}>{t.donor_count} leads</span>
-                    </div>
-                    <div style={{ color: '#6b7280', fontSize: 11 }}>
-                      Auto-return in {hoursLeft}h {minsLeft}m
-                    </div>
-                    <button className="btn btn-sm btn-outline"
-                      onClick={() => handleReturnEarly(t.id)}
-                      disabled={returningId === t.id}
-                      style={{ color: 'var(--sage, #5B6B4E)' }}>
-                      {returningId === t.id ? 'Returning...' : 'Return Early'}
-                    </button>
-                  </div>
-                  {isExpanded && (
-                    <div style={{ padding: '8px 0 12px 24px', borderBottom: '1px solid var(--line, #e5e7eb)' }}>
-                      <TransferDonorList transferId={t.id} />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {transfers.length > 0 && (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-head" onClick={() => setShowHistory(!showHistory)} style={{ cursor: 'pointer' }}>
-            <h3>All Transfers</h3>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span className="count">{transfers.length} total</span>
-              <span style={{ fontSize: 16, color: '#6b7280' }}>{showHistory ? '▲' : '▼'}</span>
-            </div>
-          </div>
-          {showHistory && (
-            <div className="card-pad">
-              {activeTransfers.length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#6b7280', marginBottom: 8 }}>Active</div>
-                  {activeTransfers.map(t => {
-                    const timeLeft = t.auto_return_at ? new Date(t.auto_return_at) - new Date() : 0;
-                    const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600000));
-                    const minsLeft = Math.max(0, Math.floor((timeLeft % 3600000) / 60000));
-                    const isExpanded = expandedTransfer === t.id;
-                    return (
-                      <div key={t.id}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--line, #e5e7eb)', fontSize: 13 }}>
-                          <div style={{ flex: 1 }}>
-                            <button className="btn btn-sm" onClick={() => setExpandedTransfer(isExpanded ? null : t.id)}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginRight: 6, fontSize: 12, color: '#9ca3af' }}>
-                              {isExpanded ? '▼' : '▶'}
-                            </button>
-                            <strong>{t.station}</strong> → <strong>{t.target_station}</strong>
-                            <span style={{ marginLeft: 8, color: '#6b7280' }}>{t.donor_count} leads</span>
-                          </div>
-                          <div style={{ color: '#6b7280', fontSize: 11 }}>
-                            Auto-return in {hoursLeft}h {minsLeft}m
-                          </div>
-                          <button className="btn btn-sm btn-outline"
-                            onClick={() => handleReturnEarly(t.id)}
-                            disabled={returningId === t.id}
-                            style={{ color: 'var(--sage, #5B6B4E)' }}>
-                            {returningId === t.id ? 'Returning...' : 'Return Early'}
-                          </button>
-                        </div>
-                        {isExpanded && (
-                          <div style={{ padding: '8px 0 12px 24px', borderBottom: '1px solid var(--line, #e5e7eb)' }}>
-                            <TransferDonorList transferId={t.id} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {historyTransfers.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#6b7280', marginBottom: 8 }}>History</div>
-                  {historyTransfers.map(t => {
-                    const isExpanded = expandedTransfer === t.id;
-                    return (
-                      <div key={t.id}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--line, #e5e7eb)', fontSize: 13, opacity: 0.7 }}>
-                          <div style={{ flex: 1 }}>
-                            <button className="btn btn-sm" onClick={() => setExpandedTransfer(isExpanded ? null : t.id)}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginRight: 6, fontSize: 12, color: '#9ca3af' }}>
-                              {isExpanded ? '▼' : '▶'}
-                            </button>
-                            <strong>{t.station}</strong> → <strong>{t.target_station}</strong>
-                            <span style={{ marginLeft: 8, color: '#6b7280' }}>{t.donor_count} leads</span>
-                          </div>
-                          <div style={{ color: '#6b7280', fontSize: 11 }}>
-                            {t.returned_at ? `Returned ${new Date(t.returned_at).toLocaleDateString()}` : 'Returned'}
-                          </div>
-                        </div>
-                        {isExpanded && (
-                          <div style={{ padding: '8px 0 12px 24px', borderBottom: '1px solid var(--line, #e5e7eb)' }}>
-                            <TransferDonorList transferId={t.id} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="card">
         <div className="card-head">
           <h3>Stations</h3>
@@ -506,9 +336,26 @@ export default function StationManagement() {
                         ))}
                       </select>
                     </td>
-                    <td><span className="pill pill-blue">{s.donor_count}</span></td>
+                    <td>
+                      <span className="pill pill-blue">{s.donor_count}</span>
+                      {(() => {
+                        const at = activeTransfers.find(t => t.station === s.station);
+                        return at ? <span style={{ marginLeft: 6, fontSize: 11, color: '#b45309' }}>({at.donor_count} to {at.target_station})</span> : null;
+                      })()}
+                    </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
+                        {(() => {
+                          const at = activeTransfers.find(t => t.station === s.station);
+                          return at ? (
+                            <button className="btn btn-sm btn-outline"
+                              onClick={() => handleReturnEarly(at.id)}
+                              disabled={returningId === at.id}
+                              style={{ color: 'var(--sage, #5B6B4E)' }}>
+                              {returningId === at.id ? 'Returning...' : 'Return'}
+                            </button>
+                          ) : null;
+                        })()}
                         <button className="btn btn-sm btn-outline" onClick={() => {
                           const fro = froWorkers.find(w => w.id === s.fro_worker_id);
                           setTransferData({
