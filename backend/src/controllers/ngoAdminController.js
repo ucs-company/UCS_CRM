@@ -1394,7 +1394,7 @@ export const transferStationData = async (req, res) => {
       return res.status(400).json({ message: 'No FRO assigned to this station' });
     }
 
-    const autoReturnAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const autoReturnAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
     const result = await createTemporaryTransfer(
       sourceAssign.fro_worker_id, target_fro_worker_id, ngoId,
       station.trim(), donor_count, autoReturnAt, req.user.id

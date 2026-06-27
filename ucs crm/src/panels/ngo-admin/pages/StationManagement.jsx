@@ -14,9 +14,8 @@ function TransferDataModal({ station, sourceFroId, sourceName, sourceCount, allF
     setLoading(true);
     try {
       await apiPost(`/ngo-admin/stations/${encodeURIComponent(station)}/transfer-data`, {
-        source_fro_id: sourceFroId,
-        target_fro_id: parseInt(targetId),
-        count,
+        target_fro_worker_id: parseInt(targetId),
+        donor_count: count,
       });
       if (onTransferred) onTransferred();
       onClose();
