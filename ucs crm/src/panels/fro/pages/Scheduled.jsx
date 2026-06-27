@@ -155,6 +155,7 @@ export default function Scheduled() {
           donorId={modalDonor.id}
           ngoId={modalDonor.ngo_id}
           donorName={modalDonor.donor_name}
+          donorMobile={modalDonor.donor_mobile}
           scheduledAt={modalDonor.scheduled_at}
           onClose={() => {
             if (autoPoppedId.current !== null) poppedIds.current.delete(autoPoppedId.current);

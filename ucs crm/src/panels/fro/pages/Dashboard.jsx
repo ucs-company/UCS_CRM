@@ -190,6 +190,59 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Lead Stats */}
+      <div className="bento-col-6">
+        <div className="bento-card" style={{ flex:1 }}>
+          <div className="bento-card-h"><h3>Lead Stats — {monthStr}</h3></div>
+          {leadStats ? (
+            <div style={{ display:'flex', gap:12 }}>
+              <div style={{ flex:1, padding:12, borderRadius:8, background:'#eff6ff', border:'1px solid #bfdbfe' }}>
+                <div style={{ fontSize:9, textTransform:'uppercase', fontWeight:600, color:'#3b82f6', marginBottom:2 }}>New Donors</div>
+                <div style={{ fontSize:20, fontWeight:800, color:'#1d4ed8' }}>{leadStats.new_donors}</div>
+                <div style={{ fontSize:10, color:'#3b82f6' }}>₹{Number(leadStats.new_amount).toLocaleString('en-IN')}</div>
+              </div>
+              <div style={{ flex:1, padding:12, borderRadius:8, background:'#f0fdf4', border:'1px solid #bbf7d0' }}>
+                <div style={{ fontSize:9, textTransform:'uppercase', fontWeight:600, color:'#16a34a', marginBottom:2 }}>Existing Donors</div>
+                <div style={{ fontSize:20, fontWeight:800, color:'#15803d' }}>{leadStats.existing_donors}</div>
+                <div style={{ fontSize:10, color:'#16a34a' }}>₹{Number(leadStats.existing_amount).toLocaleString('en-IN')}</div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign:'center', padding:20, color:'var(--md-outline)', fontSize:11 }}>No lead data for this month.</div>
+          )}
+        </div>
+      </div>
+
+      {/* Follow-ups section */}
+      <div className="bento-col-6">
+        <div className="bento-card" style={{ flex:1 }}>
+          <div className="bento-card-h"><h3>Follow-ups Today</h3></div>
+          {followUps.length === 0 ? (
+            <div style={{ textAlign:'center', padding:20, color:'var(--md-outline)', fontSize:11 }}>No follow-ups scheduled for today.</div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+              {followUps.map(fu => (
+                <div key={fu.id} style={{
+                  display:'flex', alignItems:'center', gap:8, padding:'6px 8px', borderRadius:8,
+                  background: fu.is_overdue ? '#fef2f2' : '#f0fdf4',
+                  border: '1px solid ' + (fu.is_overdue ? '#fecaca' : '#bbf7d0'),
+                }}>
+                  <span style={{ fontSize:10, fontWeight:600, color:'var(--ink-soft)', minWidth:50 }}>
+                    {new Date(fu.scheduled_at).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}
+                  </span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:11, fontWeight:600 }}>{fu.donor_name}</div>
+                    <div style={{ fontSize:9, color:'var(--md-outline)' }}>{fu.donor_mobile}</div>
+                  </div>
+                  {fu.ngo_name && <span className="bento-pill bento-pill-gray" style={{fontSize:8}}>{fu.ngo_name}</span>}
+                  {fu.is_overdue && <span className="bento-pill" style={{background:'#f87171', color:'#fff', fontSize:8}}>Overdue</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Request Data banner */}
       <div className="bento-col-12">
         <div className="bento-card" style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between', padding:'12px 16px' }}>
@@ -252,59 +305,6 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Follow-ups section */}
-      <div className="bento-col-6">
-        <div className="bento-card" style={{ flex:1 }}>
-          <div className="bento-card-h"><h3>Follow-ups Today</h3></div>
-          {followUps.length === 0 ? (
-            <div style={{ textAlign:'center', padding:20, color:'var(--md-outline)', fontSize:11 }}>No follow-ups scheduled for today.</div>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-              {followUps.map(fu => (
-                <div key={fu.id} style={{
-                  display:'flex', alignItems:'center', gap:8, padding:'6px 8px', borderRadius:8,
-                  background: fu.is_overdue ? '#fef2f2' : '#f0fdf4',
-                  border: '1px solid ' + (fu.is_overdue ? '#fecaca' : '#bbf7d0'),
-                }}>
-                  <span style={{ fontSize:10, fontWeight:600, color:'var(--ink-soft)', minWidth:50 }}>
-                    {new Date(fu.scheduled_at).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}
-                  </span>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:11, fontWeight:600 }}>{fu.donor_name}</div>
-                    <div style={{ fontSize:9, color:'var(--md-outline)' }}>{fu.donor_mobile}</div>
-                  </div>
-                  {fu.ngo_name && <span className="bento-pill bento-pill-gray" style={{fontSize:8}}>{fu.ngo_name}</span>}
-                  {fu.is_overdue && <span className="bento-pill" style={{background:'#f87171', color:'#fff', fontSize:8}}>Overdue</span>}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Lead Stats */}
-      <div className="bento-col-6">
-        <div className="bento-card" style={{ flex:1 }}>
-          <div className="bento-card-h"><h3>Lead Stats — {monthStr}</h3></div>
-          {leadStats ? (
-            <div style={{ display:'flex', gap:12 }}>
-              <div style={{ flex:1, padding:12, borderRadius:8, background:'#eff6ff', border:'1px solid #bfdbfe' }}>
-                <div style={{ fontSize:9, textTransform:'uppercase', fontWeight:600, color:'#3b82f6', marginBottom:2 }}>New Donors</div>
-                <div style={{ fontSize:20, fontWeight:800, color:'#1d4ed8' }}>{leadStats.new_donors}</div>
-                <div style={{ fontSize:10, color:'#3b82f6' }}>₹{Number(leadStats.new_amount).toLocaleString('en-IN')}</div>
-              </div>
-              <div style={{ flex:1, padding:12, borderRadius:8, background:'#f0fdf4', border:'1px solid #bbf7d0' }}>
-                <div style={{ fontSize:9, textTransform:'uppercase', fontWeight:600, color:'#16a34a', marginBottom:2 }}>Existing Donors</div>
-                <div style={{ fontSize:20, fontWeight:800, color:'#15803d' }}>{leadStats.existing_donors}</div>
-                <div style={{ fontSize:10, color:'#16a34a' }}>₹{Number(leadStats.existing_amount).toLocaleString('en-IN')}</div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ textAlign:'center', padding:20, color:'var(--md-outline)', fontSize:11 }}>No lead data for this month.</div>
           )}
         </div>
       </div>
