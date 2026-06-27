@@ -51,6 +51,7 @@ export default function NgoAdminPanel() {
   const { user, logout } = useUcs()
   const [active, setActive] = useState('dashboard')
   const [selectedDonor, setSelectedDonor] = useState(null)
+  const [selectedWorker, setSelectedWorker] = useState(null)
   const [showMenu, setShowMenu] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [themeName, setThemeName] = useState(() => localStorage.getItem('ngoadmin_theme') || 'sky')
@@ -79,6 +80,7 @@ export default function NgoAdminPanel() {
   const handleNav = useCallback((id) => {
     setActive(id)
     setSelectedDonor(null)
+    setSelectedWorker(null)
     setSidebarOpen(false)
   }, [])
 
@@ -130,8 +132,8 @@ export default function NgoAdminPanel() {
             <Donors onSelect={setSelectedDonor} />
           ))}
           {active === 'new-data' && <NewData />}
-          {active === 'station-mgmt' && <StationManagement />}
-          {active === 'attendance' && <NgoAttendance />}
+          {active === 'station-mgmt' && <StationManagement onSelectWorker={(w) => { setSelectedWorker(w); setActive('attendance'); }} />}
+          {active === 'attendance' && <NgoAttendance selectedWorker={selectedWorker} onClear={() => setSelectedWorker(null)} />}
         </div>
       </div>
     </div>

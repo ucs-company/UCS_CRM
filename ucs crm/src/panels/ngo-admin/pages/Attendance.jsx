@@ -15,7 +15,7 @@ const STATUS_COLORS = {
   leave: '#3b82f6',
 };
 
-export default function NgoAttendance() {
+export default function NgoAttendance({ selectedWorker, onClear }) {
   const [records, setRecords] = useState([]);
   const [froWorkers, setFroWorkers] = useState([]);
   const [search, setSearch] = useState('');
@@ -29,6 +29,10 @@ export default function NgoAttendance() {
     apiGet('/ngo-admin/fro-workers').then(setFroWorkers).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (selectedWorker) setSearch(selectedWorker.name);
+  }, [selectedWorker]);
+
   const froIds = new Set(froWorkers.map(w => w.id));
 
   const [year, m] = month.split('-');
@@ -37,7 +41,9 @@ export default function NgoAttendance() {
     return d.startsWith(`${year}-${m}`) && froIds.has(r.worker_id);
   });
 
-  if (search) {
+  if (selectedWorker) {
+    filtered = filtered.filter(r => r.worker_id === selectedWorker.id);
+  } else if (search) {
     const s = search.toLowerCase();
     filtered = filtered.filter(r => (r.workers?.name || '').toLowerCase().includes(s));
   }
@@ -54,6 +60,9 @@ export default function NgoAttendance() {
             <input placeholder="Search worker…" value={search} onChange={e => setSearch(e.target.value)}
               style={{ fontSize: 13, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)', flex: 1, maxWidth: 240 }} />
             <span style={{ fontSize: 13, color: '#6b7280' }}>{filtered.length} record{filtered.length !== 1 ? 's' : ''}</span>
+            {selectedWorker && (
+              <button className="btn btn-sm btn-outline" onClick={() => { onClear?.(); setSearch(''); }}>View All Records</button>
+            )}
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ fontSize: 13, borderCollapse: 'collapse', width: '100%' }}>

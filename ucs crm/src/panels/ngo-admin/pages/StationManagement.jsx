@@ -118,7 +118,7 @@ function NgoSelectModal({ allNgos, selectedIds, onSave, onClose }) {
   );
 }
 
-export default function StationManagement() {
+export default function StationManagement({ onSelectWorker }) {
   const [stations, setStations] = useState([]);
   const [allNgos, setAllNgos] = useState([]);
   const [froWorkers, setFroWorkers] = useState([]);
@@ -354,16 +354,35 @@ export default function StationManagement() {
                       </span>
                     </td>
                     <td>
-                      <select
-                        value={s.fro_worker_id || ''}
-                        onChange={e => handleFroChange(s.station, e.target.value)}
-                        style={{ fontSize: 13, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)', maxWidth: 200 }}
-                      >
-                        <option value="">-- No FRO --</option>
-                        {froWorkers.filter(w => !assignedFroIds.has(w.id) || w.id === s.fro_worker_id).map(w => (
-                          <option key={w.id} value={w.id}>{w.name}</option>
-                        ))}
-                      </select>
+                      {(() => {
+                        const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
+                        return w ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span
+                              onClick={() => onSelectWorker?.(w)}
+                              style={{ cursor: 'pointer', color: 'var(--sage, #5B6B4E)', fontWeight: 600, textDecoration: 'underline dotted', textUnderlineOffset: 2 }}>
+                              {w.name}
+                            </span>
+                            <select value={s.fro_worker_id || ''}
+                              onChange={e => handleFroChange(s.station, e.target.value)}
+                              style={{ fontSize: 11, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--line, #e5e7eb)' }}>
+                              <option value="">-- Remove --</option>
+                              {froWorkers.filter(w2 => !assignedFroIds.has(w2.id) || w2.id === s.fro_worker_id).map(w2 => (
+                                <option key={w2.id} value={w2.id}>{w2.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <select value={s.fro_worker_id || ''}
+                            onChange={e => handleFroChange(s.station, e.target.value)}
+                            style={{ fontSize: 13, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)', maxWidth: 200 }}>
+                            <option value="">-- No FRO --</option>
+                            {froWorkers.filter(w2 => !assignedFroIds.has(w2.id) || w2.id === s.fro_worker_id).map(w2 => (
+                              <option key={w2.id} value={w2.id}>{w2.name}</option>
+                            ))}
+                          </select>
+                        );
+                      })()}
                     </td>
                     <td>
                       <span className="pill pill-blue">{s.donor_count}</span>
