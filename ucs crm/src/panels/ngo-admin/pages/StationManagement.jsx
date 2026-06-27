@@ -153,8 +153,10 @@ export default function StationManagement() {
       setStations(list);
       setAllNgos(Array.isArray(n) ? n : []);
       setFroWorkers(Array.isArray(f) ? f : []);
+      apiGet('/ngo-admin/transfers').then(t => {
+        setActiveTransfers(Array.isArray(t) ? t : []);
+      }).catch(() => {});
     }).catch(() => {});
-    fetchTransfers();
   };
 
   useEffect(() => {
@@ -163,15 +165,16 @@ export default function StationManagement() {
       apiGet('/ngo-admin/stations'),
       apiGet('/ngo-admin/ngos'),
       apiGet('/ngo-admin/fro-workers'),
-      apiGet('/ngo-admin/transfers'),
-    ]).then(([s, n, f, t]) => {
+    ]).then(([s, n, f]) => {
       const list = Array.isArray(s) ? s : [];
       setStations(list);
       setAllNgos(Array.isArray(n) ? n : []);
       setFroWorkers(Array.isArray(f) ? f : []);
-      setActiveTransfers(Array.isArray(t) ? t : []);
       setNewStation(computeNextName(list));
     }).catch(() => {}).finally(() => setLoading(false));
+    apiGet('/ngo-admin/transfers').then(t => {
+      setActiveTransfers(Array.isArray(t) ? t : []);
+    }).catch(() => {});
   }, []);
 
   const handleAddStation = async () => {
