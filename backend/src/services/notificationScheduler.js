@@ -48,6 +48,8 @@ async function sendBirthdayNotifications(tokens, dateStr, dayOffset) {
   if (!isToday && !isTomorrow) return;
 
   const ngoIds = [...new Set(tokens.map((t) => t.workers?.ngo_id).filter(Boolean))];
+  const todayDateStr = getDateString(new Date());
+
   for (const ngoId of ngoIds) {
     const workers = await getAllWorkers(ngoId);
     const birthdayWorkers = workers.filter((w) => {
@@ -57,29 +59,181 @@ async function sendBirthdayNotifications(tokens, dateStr, dayOffset) {
       const targetMD = dateStr.slice(5);
       return md === targetMD;
     });
+    if (birthdayWorkers.length === 0) continue;
 
-    for (const worker of birthdayWorkers) {
-      const tokenData = tokens.find((t) => t.worker_id === worker.id);
-      if (!tokenData) continue;
+    const ngoTokens = tokens.filter((t) => t.workers?.ngo_id === ngoId);
+    if (ngoTokens.length === 0) continue;
 
-      let title, body;
-      if (isTomorrow) {
-        title = '🎂 Birthday Tomorrow!';
-        const aiMsg = await generateAiMessage(
-          `Write a warm reminder that ${worker.name}'s birthday is tomorrow. Keep it under 100 characters. Make it caring.`
-        );
-        body = aiMsg || `🎉 ${worker.name}'s birthday is tomorrow! Get ready to celebrate!`;
-      } else {
-        title = '🎂 Happy Birthday!';
-        const aiMsg = await generateAiMessage(
-          `Write a warm birthday wish for ${worker.name}. Keep it under 100 characters. Make it joyful.`
-        );
-        body = aiMsg || `🎉 Happy Birthday ${worker.name}! Wishing you a wonderful day!`;
+    const { data: existingLogs } = await supabase
+      .from('notification_log')
+      .select('worker_id, reference_id')
+      .eq('type', 'birthday')
+      .gte('sent_at', `${todayDateStr}T00:00:00+05:30`)
+      .lte('sent_at', `${todayDateStr}T23:59:59+05:30`);
+
+    const dedupSet = new Set((existingLogs || []).map((l) => `${l.worker_id}:${l.reference_id}`));
+
+    for (const bdayWorker of birthdayWorkers) {
+      const notifications = [];
+
+      for (const t of ngoTokens) {
+        const key = `${t.worker_id}:${bdayWorker.id}`;
+        if (dedupSet.has(key)) continue;
+        dedupSet.add(key);
+
+        if (isTomorrow && t.worker_id === bdayWorker.id) {
+          const title = '🎂 Birthday Tomorrow!';
+          const aiMsg = await generateAiMessage(
+            `Write a warm reminder that your birthday is tomorrow. Keep it under 100 characters. Make it caring.`
+          );
+          const body = aiMsg || `🎉 Your birthday is tomorrow! Get ready to celebrate!`;
+          notifications.push({ workerId: t.worker_id, title, body, type: 'birthday', referenceId: bdayWorker.id });
+        } else if (isToday) {
+          if (t.worker_id === bdayWorker.id) {
+            const title = '🎂 Happy Birthday!';
+            const aiMsg = await generateAiMessage(
+              `Write a warm birthday wish for ${bdayWorker.name}. Keep it under 100 characters. Make it joyful.`
+            );
+            const body = aiMsg || `🎉 Happy Birthday ${bdayWorker.name}! Wishing you a wonderful day!`;
+            notifications.push({ workerId: t.worker_id, title, body, type: 'birthday', referenceId: bdayWorker.id });
+          } else {
+            const title = '🎂 Birthday Today!';
+            const aiMsg = await generateAiMessage(
+              `Tell everyone that ${bdayWorker.name}'s birthday is today and ask them to send wishes. Keep it under 100 characters.`
+            );
+            const body = aiMsg || `🎉 It's ${bdayWorker.name}'s birthday today! Send them your wishes!`;
+            notifications.push({ workerId: t.worker_id, title, body, type: 'birthday', referenceId: bdayWorker.id });
+          }
+        }
       }
 
-      await sendPushToMultiple([{
-        workerId: worker.id, title, body, type: 'birthday', referenceId: worker.id,
-      }]);
+      if (notifications.length > 0) {
+        await sendPushToMultiple(notifications);
+      }
+    }
+  }
+}
+
+async function sendNewJoinerNotifications(tokens) {
+  const ngoIds = [...new Set(tokens.map((t) => t.workers?.ngo_id).filter(Boolean))];
+  const todayDateStr = getDateString(new Date());
+
+  for (const ngoId of ngoIds) {
+    const workers = await getAllWorkers(ngoId);
+    const newJoiners = workers.filter((w) => {
+      if (!w.created_at) return false;
+      const joinedDate = new Date(w.created_at);
+      return getDateString(joinedDate) === todayDateStr;
+    });
+    if (newJoiners.length === 0) continue;
+
+    const ngoTokens = tokens.filter((t) => t.workers?.ngo_id === ngoId);
+    if (ngoTokens.length === 0) continue;
+
+    const { data: existingLogs } = await supabase
+      .from('notification_log')
+      .select('worker_id, reference_id')
+      .eq('type', 'new_joiner')
+      .gte('sent_at', `${todayDateStr}T00:00:00+05:30`)
+      .lte('sent_at', `${todayDateStr}T23:59:59+05:30`);
+
+    const dedupSet = new Set((existingLogs || []).map((l) => `${l.worker_id}:${l.reference_id}`));
+
+    for (const joiner of newJoiners) {
+      const notifications = [];
+
+      for (const t of ngoTokens) {
+        const key = `${t.worker_id}:${joiner.id}`;
+        if (dedupSet.has(key)) continue;
+        dedupSet.add(key);
+
+        if (t.worker_id === joiner.id) {
+          const title = '👋 Welcome!';
+          const aiMsg = await generateAiMessage(
+            `Write a warm welcome message for ${joiner.name} who just joined the organization today. Keep it under 100 characters. Make it exciting and personal.`
+          );
+          const body = aiMsg || `👋 Welcome to the team, ${joiner.name}! We're thrilled to have you!`;
+          notifications.push({ workerId: t.worker_id, title, body, type: 'new_joiner', referenceId: joiner.id });
+        } else {
+          const title = '👋 New Team Member!';
+          const aiMsg = await generateAiMessage(
+            `Tell everyone that ${joiner.name} has joined the organization today and ask them to give a warm welcome. Keep it under 100 characters.`
+          );
+          const body = aiMsg || `👋 Please welcome ${joiner.name} who joins us today!`;
+          notifications.push({ workerId: t.worker_id, title, body, type: 'new_joiner', referenceId: joiner.id });
+        }
+      }
+
+      if (notifications.length > 0) {
+        await sendPushToMultiple(notifications);
+      }
+    }
+  }
+}
+
+async function sendAnniversaryNotifications(tokens) {
+  const ngoIds = [...new Set(tokens.map((t) => t.workers?.ngo_id).filter(Boolean))];
+  const today = new Date();
+  const todayMD = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const currentYear = today.getFullYear();
+  const todayDateStr = getDateString(today);
+
+  for (const ngoId of ngoIds) {
+    const workers = await getAllWorkers(ngoId);
+    const celebrants = workers.filter((w) => {
+      if (!w.created_at) return false;
+      const joined = new Date(w.created_at);
+      const joinMD = `${String(joined.getMonth() + 1).padStart(2, '0')}-${String(joined.getDate()).padStart(2, '0')}`;
+      if (joinMD !== todayMD) return false;
+      const years = currentYear - joined.getFullYear();
+      return years >= 1;
+    });
+    if (celebrants.length === 0) continue;
+
+    const ngoTokens = tokens.filter((t) => t.workers?.ngo_id === ngoId);
+    if (ngoTokens.length === 0) continue;
+
+    const yearStart = `${currentYear}-01-01T00:00:00+05:30`;
+    const yearEnd = `${currentYear}-12-31T23:59:59+05:30`;
+    const { data: existingLogs } = await supabase
+      .from('notification_log')
+      .select('worker_id, reference_id')
+      .eq('type', 'anniversary')
+      .gte('sent_at', yearStart)
+      .lte('sent_at', yearEnd);
+
+    const dedupSet = new Set((existingLogs || []).map((l) => `${l.worker_id}:${l.reference_id}`));
+
+    for (const celebrant of celebrants) {
+      const joined = new Date(celebrant.created_at);
+      const years = currentYear - joined.getFullYear();
+      const notifications = [];
+
+      for (const t of ngoTokens) {
+        const key = `${t.worker_id}:${celebrant.id}`;
+        if (dedupSet.has(key)) continue;
+        dedupSet.add(key);
+
+        if (t.worker_id === celebrant.id) {
+          const title = '🎉 Work Anniversary!';
+          const aiMsg = await generateAiMessage(
+            `Write a warm congratulatory message for completing ${years} year${years > 1 ? 's' : ''} at the organization. Keep it under 100 characters. Make it personal and proud.`
+          );
+          const body = aiMsg || `🎉 Happy ${years} year work anniversary to you! We're so grateful for you!`;
+          notifications.push({ workerId: t.worker_id, title, body, type: 'anniversary', referenceId: celebrant.id });
+        } else {
+          const title = '🎉 Work Anniversary!';
+          const aiMsg = await generateAiMessage(
+            `Tell everyone that ${celebrant.name} completes ${years} year${years > 1 ? 's' : ''} with the organization today and ask them to congratulate. Keep it under 100 characters.`
+          );
+          const body = aiMsg || `🎉 ${celebrant.name} completes ${years} year${years > 1 ? 's' : ''} with us today! Congratulate them!`;
+          notifications.push({ workerId: t.worker_id, title, body, type: 'anniversary', referenceId: celebrant.id });
+        }
+      }
+
+      if (notifications.length > 0) {
+        await sendPushToMultiple(notifications);
+      }
     }
   }
 }
@@ -175,6 +329,8 @@ async function runNotificationCycle() {
 
     await sendBirthdayNotifications(tokens, tomorrowStr, 1);
     await sendBirthdayNotifications(tokens, todayStr, 0);
+    await sendNewJoinerNotifications(tokens);
+    await sendAnniversaryNotifications(tokens);
     await sendEventNotifications(tokens, tomorrowStr, 1);
     await sendEventNotifications(tokens, todayStr, 0);
     await sendNoticeNotifications(tokens);
