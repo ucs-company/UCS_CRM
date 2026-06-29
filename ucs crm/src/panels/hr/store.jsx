@@ -16,6 +16,7 @@ export function useHR() {
     generateAllTargets, fetchCurrentMonthTargets,
     setAchievement, fetchWorkerAchievements, fetchIncentiveSummary, fetchMonthlyIncentiveSummary,
     fetchWorkerAllocations, setWorkerAllocations, fetchWorkerSalaryAllocations,
+    fetchLoans, fetchPendingLoans, decideLoan, fetchWorkerLoans, fetchWorkerActiveLoans,
     generateQR, fetchQRCodes, removeQRCode,
     fetchSettings, updateSettings,
   }
@@ -91,3 +92,8 @@ export const fetchQRCodes = () => apiGet('/qr');
 export const removeQRCode = (id) => apiDelete('/qr/' + id);
 export const fetchSettings = () => apiGet('/settings');
 export const updateSettings = (settings) => apiPut('/settings', settings);
+export const fetchLoans = () => apiGet('/loans');
+export const fetchPendingLoans = () => apiGet('/loans/pending');
+export const decideLoan = (id, status, monthly_deduction, hr_remark) => apiPut('/loans/' + id + '/decide', { status: status === 'approved' ? 'approved' : 'rejected', monthly_deduction, hr_remark });
+export const fetchWorkerLoans = (workerId) => apiGet('/loans/worker/' + workerId);
+export const fetchWorkerActiveLoans = (workerId) => apiGet('/loans/worker/' + workerId + '/active');

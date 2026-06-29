@@ -13,6 +13,7 @@ import Notify from './components/Notify'
 import Holidays from './components/Holidays'
 import Recruiters from './components/Recruiters'
 import GenerateQR from './components/GenerateQR'
+import Loans from './components/Loans'
 import SettingsPage from './components/Settings'
 
 const NAV = [
@@ -25,9 +26,10 @@ const NAV = [
   { id:'notify',     label:'Notifications',icon:Bell,   eyebrow:'Comms',       sub:'Send a message to the team' },
   { id:'holidays',   label:'Holidays',    icon:Cal,     eyebrow:'Calendar',    sub:'Plan the holiday chart' },
   { id:'qr',         label:'QR Codes',    icon:Grid,    eyebrow:'Attendance',  sub:'Generate and manage QR codes' },
+  { id:'loans',      label:'Loans & Advances', icon:Grid, eyebrow:'Finance',  sub:'Approve and manage loans & advances' },
 ]
 
-const PANELS = { overview:Overview, employees:Workers, attendance:Attendance, leaves:Leaves, letters:Letters, recruiters:Recruiters, notify:Notify, holidays:Holidays, qr:GenerateQR }
+const PANELS = { overview:Overview, employees:Workers, attendance:Attendance, leaves:Leaves, letters:Letters, recruiters:Recruiters, notify:Notify, holidays:Holidays, qr:GenerateQR, loans:Loans }
 
 function Sidebar({ active, setActive, open, onClose }) {
   return (

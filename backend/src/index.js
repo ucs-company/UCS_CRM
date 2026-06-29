@@ -36,6 +36,7 @@ import dataImportRoutes from './routes/dataImportRoutes.js';
 import ngoAdminRoutes from './routes/ngoAdminRoutes.js';
 import froRoutes from './routes/froRoutes.js';
 import accountsRoutes from './routes/accountsRoutes.js';
+import loanRoutes from './routes/loanRoutes.js';
 
 dotenv.config();
 
@@ -82,6 +83,8 @@ app.use('/api/data-import', dataImportRoutes);
 app.use('/api/ngo-admin', ngoAdminRoutes);
 app.use('/api/fro', froRoutes);
 app.use('/api/accounts', accountsRoutes);
+app.use('/api/loans', loanRoutes);
+app.use('/api/advances', loanRoutes);
 
 if (fs.existsSync(froDist)) {
   app.use('/assets', express.static(path.join(froDist, 'assets')));

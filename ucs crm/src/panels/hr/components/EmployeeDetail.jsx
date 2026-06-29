@@ -43,7 +43,7 @@ function Badge({ status }) {
 }
 
 export default function EmployeeDetail({ worker, onBack, onOffboard }) {
-  const { fetchWorkerById, fetchAttendance, fetchLeaves, fetchWorkerLetters, updateWorker, fetchWorkerSalaries, addWorkerSalary, updateWorkerSalary, fetchWorkerTargetForMonth, setAchievement, fetchWorkerAchievements, fetchIncentiveSummary, fetchWorkerAllocations, fetchWorkerSalaryAllocations, setWorkerAllocations, DEPTS, fetchNGOs, fetchHolidays } = useHR();
+  const { fetchWorkerById, fetchAttendance, fetchLeaves, fetchWorkerLetters, updateWorker, fetchWorkerSalaries, addWorkerSalary, updateWorkerSalary, fetchWorkerTargetForMonth, setAchievement, fetchWorkerAchievements, fetchIncentiveSummary, fetchWorkerAllocations, fetchWorkerSalaryAllocations, setWorkerAllocations, DEPTS, fetchNGOs, fetchHolidays, fetchWorkerLoans } = useHR();
   const [attendance, setAttendance] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [ngos, setNgos] = useState([]);
@@ -75,6 +75,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
   const [achSaving, setAchSaving] = useState({});
   const [allocations, setAllocations] = useState([]);
   const [sundayBonus, setSundayBonus] = useState(null);
+  const [workerLoans, setWorkerLoans] = useState([]);
   const [editingRecord, setEditingRecord] = useState(null);
   const [editPunchIn, setEditPunchIn] = useState('');
   const [editPunchOut, setEditPunchOut] = useState('');
@@ -89,12 +90,14 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
       fetchWorkerLetters(worker.id),
       fetchWorkerSalaries(worker.id).catch(() => []),
       fetchWorkerAllocations(worker.id).catch(() => []),
-    ]).then(([d, l, s, a]) => {
+      fetchWorkerLoans(worker.id).catch(() => []),
+    ]).then(([d, l, s, a, wl]) => {
       if (cancelled) return;
       setData(d);
       setLetters(l || []);
       setSalaries(s || []);
       setAllocations(a || []);
+      setWorkerLoans(wl || []);
       setLoading(false);
 
       if (d?.department === 'FRO') {
@@ -204,6 +207,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
     { key: 'attendance', label: 'Attendance' },
     { key: 'salary', label: 'Salary' },
     { key: 'leaves', label: 'Leaves' },
+    { key: 'loans', label: 'Loans & Advances' },
   ];
 
   const now = new Date();
@@ -329,6 +333,12 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
     lateDeductionDays = 0.5;
   }
   totalDue = perDay * Math.max(0, paidDays - lateDeductionDays - joiningDeduction);
+
+  // Loan / Advance deductions
+  const activeLoans = workerLoans.filter(l =>
+    l.status === 'active' || l.status === 'approved'
+  );
+  const loanDeductionTotal = activeLoans.reduce((sum, l) => sum + parseFloat(l.monthly_deduction || 0), 0);
 
   // Pay date: 10th of next month + absent days on 1st–10th (excl Sundays)
   const absent1to10 = monthAttendance.filter(a =>
@@ -883,7 +893,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                           })()}
                         </svg>
                         <div className="salary-visual-main">
-                          <div className="salary-visual-total">₹{(Math.round(totalDue) + (sundayBonus?.bonusAmount || 0) + (sundayBonus?.incentiveAKI || 0) + (sundayBonus?.incentiveMonthly || 0)).toLocaleString('en-IN')}</div>
+                          <div className="salary-visual-total">₹{(Math.round(totalDue) + parseFloat(activeSalary?.extra_amount || 0) + (sundayBonus?.bonusAmount || 0) + (sundayBonus?.incentiveAKI || 0) + (sundayBonus?.incentiveMonthly || 0) - loanDeductionTotal).toLocaleString('en-IN')}</div>
                           <div className="salary-visual-label">Total Due</div>
                         </div>
                       </div>
@@ -986,7 +996,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                           </>
                         )}
                         <span style={{ marginLeft:'auto', fontWeight:600, fontSize:15 }}>
-                          Grand Total: <span style={{ color:'var(--sage)', fontSize:20, fontWeight:800 }}>₹{(Math.round(totalDue) + parseFloat(activeSalary?.extra_amount || 0) + (sundayBonus?.bonusAmount || 0) + (sundayBonus?.incentiveAKI || 0) + (sundayBonus?.incentiveMonthly || 0)).toLocaleString('en-IN')}</span>
+                          Grand Total: <span style={{ color:'var(--sage)', fontSize:20, fontWeight:800 }}>₹{(Math.round(totalDue) + parseFloat(activeSalary?.extra_amount || 0) + (sundayBonus?.bonusAmount || 0) + (sundayBonus?.incentiveAKI || 0) + (sundayBonus?.incentiveMonthly || 0) - loanDeductionTotal).toLocaleString('en-IN')}</span>
                         </span>
                       </div>
 
@@ -1009,11 +1019,13 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                           const akiAmt = sb.incentiveAKI || 0;
                           const monthlyAmt = sb.incentiveMonthly || 0;
                           const baseDue = Math.round(totalDue);
-                          const total = baseDue + bonusAmt + akiAmt + monthlyAmt;
+                          const loanDed = loanDeductionTotal;
+                          const total = baseDue + bonusAmt + akiAmt + monthlyAmt - loanDed;
 
                           return (
                             <>
                               <Box num={'₹' + baseDue.toLocaleString('en-IN')} label={'Salary\nDue'} color="#5B6B4E" big />
+                              {loanDed > 0 && <><Arrow /><Box num={'−₹' + loanDed.toLocaleString('en-IN')} label={'Loan/\nAdvance'} color="#e67e22" /></>}
                               <Arrow />
                               <Box num={'+₹' + bonusAmt.toLocaleString('en-IN')} label={'Sunday\nBonus'} color={bonusAmt > 0 ? '#f59e0b' : '#ddd'} />
                               <Arrow />
@@ -1120,6 +1132,18 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                           </div>
                         ) : null}
                       </div>
+
+                      {/* Loan / Advance deduction info */}
+                      {loanDeductionTotal > 0 && activeLoans.map(l => (
+                        <div key={l.id} style={{ marginBottom:14, padding:'10px 14px', border:'1px solid #e67e22', borderRadius:8, background:'#fff8f0', fontSize:12 }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:4 }}>
+                            <span style={{ textTransform:'capitalize' }}><strong>{l.type}</strong> — ₹{parseFloat(l.monthly_deduction).toLocaleString('en-IN')}/mo deducted</span>
+                            <span style={{ color:'var(--ink-soft)' }}>
+                              Remaining: <strong style={{ color:'var(--danger)' }}>₹{parseFloat(l.remaining_amount).toLocaleString('en-IN')}</strong>
+                            </span>
+                          </div>
+                        </div>
+                      ))}
 
                       {/* Join info — highlighted box */}
                       {joinedThisMonth && (
@@ -1278,10 +1302,17 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                           )}
                           <span style={{ borderTop:'1px solid var(--line)', paddingTop:4, fontWeight:600 }}>Paid days</span>
                           <span style={{ borderTop:'1px solid var(--line)', paddingTop:4, textAlign:'right', fontWeight:600 }}>{paidDays}</span>
+                          {loanDeductionTotal > 0 && (
+                            <><span style={{ color:'#e67e22' }}>Loan/Advance deduction</span><span style={{ textAlign:'right', color:'#e67e22' }}>−₹{loanDeductionTotal.toLocaleString('en-IN')}</span></>
+                          )}
                         </div>
                         <div style={{ marginTop:10, textAlign:'center' }}>
                             <span style={{ color:'var(--ink-soft)', fontSize:12 }}>₹{perDay.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} × {paidDays} day{paidDays !== 1 ? 's' : ''}{lateDeductionDays > 0 ? ' − ' + lateDeductionDays + ' late' : ''}{joiningDeduction > 0 ? ' − ' + joiningDeduction + ' join' : ''} = </span>
                           <strong style={{ fontSize:20, color:'var(--sage)' }}>₹{Math.round(totalDue).toLocaleString('en-IN')}</strong>
+                          {loanDeductionTotal > 0 && (
+                            <span style={{ color:'var(--ink-soft)', fontSize:12 }}> − <span style={{ color:'#e67e22' }}>₹{loanDeductionTotal.toLocaleString('en-IN')}</span> loan = </span>
+                          )}
+                          <strong style={{ fontSize:20, color:'var(--sage)' }}>₹{(Math.round(totalDue) - loanDeductionTotal).toLocaleString('en-IN')}</strong>
                         </div>
                       </div>
                       </div>
@@ -1788,6 +1819,54 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                   </tbody>
                 </table>
               )}
+            </div>
+          )}
+
+          {tab === 'loans' && (
+            <div className="card">
+              <div className="card-head"><h3>Loans & Advances</h3></div>
+              <div className="card-pad">
+                {workerLoans.length === 0 ? (
+                  <div className="empty">No loans or advances.</div>
+                ) : (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>Amount</th>
+                        <th>Monthly Deduction</th>
+                        <th>Paid So Far</th>
+                        <th>Remaining</th>
+                        <th>Status</th>
+                        <th>Applied</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {workerLoans.map(l => (
+                        <tr key={l.id}>
+                          <td style={{ textTransform:'capitalize', fontWeight:500 }}>{l.type}</td>
+                          <td style={{ fontWeight:600 }}>₹{parseFloat(l.total_amount).toLocaleString('en-IN')}</td>
+                          <td>{parseFloat(l.monthly_deduction || 0) > 0 ? '₹' + parseFloat(l.monthly_deduction).toLocaleString('en-IN') + '/mo' : '—'}</td>
+                          <td style={{ color:'var(--sage)' }}>
+                            {l.total_deducted > 0 ? '₹' + l.total_deducted.toLocaleString('en-IN') : '—'}
+                          </td>
+                          <td style={{ color: parseFloat(l.remaining_amount || 0) > 0 ? 'var(--danger)' : 'var(--ink-soft)', fontWeight:600 }}>
+                            {parseFloat(l.remaining_amount || 0) > 0 ? '₹' + parseFloat(l.remaining_amount).toLocaleString('en-IN') : '—'}
+                          </td>
+                          <td>
+                            <span className={`pill ${l.status === 'active' || l.status === 'approved' ? 'pill-green' : l.status === 'closed' ? 'pill-gray' : l.status === 'rejected' ? 'pill-danger' : 'pill-gold'}`}>
+                              {l.status.charAt(0).toUpperCase() + l.status.slice(1)}
+                            </span>
+                          </td>
+                          <td style={{ color:'var(--ink-soft)' }}>
+                            {new Date(l.applied_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
           )}
 

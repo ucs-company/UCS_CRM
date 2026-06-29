@@ -164,6 +164,23 @@ export const getPayrollData = async (month, extended = false) => {
     attByWorker[r.worker_id].push(r);
   }
 
+  // Fetch active loan deductions
+  const { data: activeLoans, error: loanErr } = await supabase
+    .from('worker_loans')
+    .select('worker_id, monthly_deduction, remaining_amount, type')
+    .in('status', ['approved', 'active'])
+    .gt('remaining_amount', 0);
+  const loanByWorker = {};
+  if (!loanErr && activeLoans) {
+    for (const l of activeLoans) {
+      const ded = parseFloat(l.monthly_deduction || 0);
+      if (ded > 0) {
+        if (!loanByWorker[l.worker_id]) loanByWorker[l.worker_id] = [];
+        loanByWorker[l.worker_id].push(l);
+      }
+    }
+  }
+
   const monthDays = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(year, monthIdx, d);
@@ -197,6 +214,11 @@ export const getPayrollData = async (month, extended = false) => {
       }
     }
 
+    // Loan/advance deduction
+    const workerLoans = loanByWorker[w.id] || [];
+    const loanDeduction = workerLoans.reduce((sum, l) => sum + parseFloat(l.monthly_deduction || 0), 0);
+    const netDue = totalDue - Math.round(loanDeduction);
+
     const workerAllocs = allocsByWorker[w.id] || [];
     if (workerAllocs.length === 0) {
       const row = {
@@ -204,7 +226,7 @@ export const getPayrollData = async (month, extended = false) => {
         name: w.name,
         account_number: w.account_number || '',
         ifsc_code: w.ifsc_code || '',
-        total_due: totalDue,
+        total_due: netDue,
       };
       if (extended) {
         row.account_holder_name = w.account_holder_name || '';
@@ -221,12 +243,13 @@ export const getPayrollData = async (month, extended = false) => {
         row.achieved = Math.round(achievedByWorker[w.id] || 0);
         row.monthly_incentive = monthlyIncentive;
         row.aki_payout = akiPayout;
+        row.loan_deduction = Math.round(loanDeduction);
       }
       rows.push(row);
     } else {
       for (const a of workerAllocs) {
         const portion = parseFloat(a.salary_portion);
-        const portionDue = Math.round(totalDue * (portion / salary));
+        const portionDue = Math.round(netDue * (portion / salary));
         const portionPerDay = Math.round(portion / daysInMonth);
         const row = {
           ngo_name: a.ngos?.name || 'Unknown',
@@ -250,6 +273,7 @@ export const getPayrollData = async (month, extended = false) => {
           row.achieved = Math.round(achievedByWorker[w.id] || 0);
           row.monthly_incentive = monthlyIncentive;
           row.aki_payout = akiPayout;
+          row.loan_deduction = Math.round(loanDeduction);
         }
         rows.push(row);
       }

@@ -13,6 +13,7 @@ import { getAllocationsByWorker } from '../models/workerNgoAllocationModel.js';
 import { getTarget, upsertTarget } from '../models/incentiveModel.js';
 import { getAchievements } from '../models/dailyAchievementModel.js';
 import { calculateAKI, getDayName, getMonthsEmployed } from '../utils/incentive.js';
+import { getActiveLoansByWorker } from '../models/loanModel.js';
 
 export const getWorkerSalaries = async (req, res) => {
   try {
@@ -235,6 +236,26 @@ export const getWorkerSalaryWithAllocations = async (req, res) => {
       } catch (err) { console.error('Sunday bonus calculation error:', err); }
     }
 
+    // Loan / Advance deductions
+    let loanDeductions = [];
+    let totalLoanDeduction = 0;
+    try {
+      const activeLoans = await getActiveLoansByWorker(workerId);
+      for (const loan of activeLoans) {
+        const monthly = parseFloat(loan.monthly_deduction || 0);
+        if (monthly > 0) {
+          loanDeductions.push({
+            id: loan.id,
+            type: loan.type,
+            total_amount: parseFloat(loan.total_amount),
+            monthly_deduction: monthly,
+            remaining_amount: parseFloat(loan.remaining_amount),
+          });
+          totalLoanDeduction += monthly;
+        }
+      }
+    } catch (err) { console.error('Loan deduction error:', err); }
+
     return res.json({
       workerId: worker.id,
       name: worker.name,
@@ -249,6 +270,8 @@ export const getWorkerSalaryWithAllocations = async (req, res) => {
         salary_portion: parseFloat(a.salary_portion),
       })),
       sundayBonus,
+      loanDeductions,
+      totalLoanDeduction,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -442,6 +465,26 @@ export const getMySalaryBreakdown = async (req, res) => {
       } catch (err) { console.error('Incentive calculation error:', err); }
     }
 
+    // Loan / Advance deductions
+    let loanDeductions = [];
+    let totalLoanDeduction = 0;
+    try {
+      const activeLoans = await getActiveLoansByWorker(workerId);
+      for (const loan of activeLoans) {
+        const monthly = parseFloat(loan.monthly_deduction || 0);
+        if (monthly > 0) {
+          loanDeductions.push({
+            id: loan.id,
+            type: loan.type,
+            total_amount: parseFloat(loan.total_amount),
+            monthly_deduction: monthly,
+            remaining_amount: parseFloat(loan.remaining_amount),
+          });
+          totalLoanDeduction += monthly;
+        }
+      }
+    } catch (err) { console.error('Loan deduction error:', err); }
+
     const safeRecord = (r) => ({
       id: r.id, date: r.date, status: r.status, late_minutes: r.late_minutes || 0,
       punch_in_time: r.punch_in_time, punch_out_time: r.punch_out_time,
@@ -496,6 +539,8 @@ export const getMySalaryBreakdown = async (req, res) => {
       createdAt: worker.created_at,
       records: (records || []).map(safeRecord),
       allocations,
+      loanDeductions,
+      totalLoanDeduction,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
