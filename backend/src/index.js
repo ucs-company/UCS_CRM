@@ -111,6 +111,17 @@ if (fs.existsSync(accountsDist)) {
   });
 }
 
+app.post('/api/cron/trigger', async (req, res) => {
+  try {
+    const { runNotificationCycle } = await import('./services/notificationScheduler.js');
+    await runNotificationCycle();
+    res.json({ success: true, message: 'Notification cycle triggered' });
+  } catch (error) {
+    console.error('Cron trigger error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ message: 'Internal server error' });

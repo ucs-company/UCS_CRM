@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/api_service.dart';
 import 'services/notification_service.dart';
@@ -33,6 +34,7 @@ void main() async {
     statusBarBrightness: Brightness.light,
   ));
   final navigatorKey = GlobalKey<NavigatorState>();
+  NotificationService().setNavigatorKey(navigatorKey);
   runApp(UfsAttendApp(navigatorKey: navigatorKey));
 }
 
@@ -302,6 +304,12 @@ class _AuthGateState extends State<AuthGate> {
       final token = await ApiService.getToken().timeout(const Duration(seconds: 2));
       if (token != null && firebaseInitialized) {
         await NotificationService().init();
+      }
+      if (token != null && firebaseInitialized) {
+        final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+        if (initialMessage != null) {
+          // App opened by tapping a notification — land on home
+        }
       }
       if (token != null) {
         // Always query server; use local cache only as fallback

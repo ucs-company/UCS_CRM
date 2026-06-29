@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'api_service.dart';
 
@@ -8,6 +9,39 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     await Firebase.initializeApp();
   } catch (_) {}
+
+  final localNotifications = FlutterLocalNotificationsPlugin();
+  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const iosSettings = DarwinInitializationSettings(
+    requestAlertPermission: false,
+    requestBadgePermission: false,
+    requestSoundPermission: false,
+  );
+  await localNotifications.initialize(
+    const InitializationSettings(android: androidSettings, iOS: iosSettings),
+  );
+
+  final title = message.notification?.title ?? message.data['title'] ?? 'UFS Attend';
+  final body = message.notification?.body ?? message.data['body'] ?? '';
+  final payload = '${message.data['type'] ?? ''}|${message.data['referenceId'] ?? ''}';
+
+  await localNotifications.show(
+    DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    title,
+    body.isEmpty ? title : body,
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'ufs_attend_channel',
+        'UFS Attend Notifications',
+        channelDescription: 'Push notifications from UFS Attend',
+        icon: 'notification_icon',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+      iOS: DarwinNotificationDetails(),
+    ),
+    payload: payload.isNotEmpty ? payload : null,
+  );
 }
 
 class NotificationService {
@@ -18,6 +52,11 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  GlobalKey<NavigatorState>? _navigatorKey;
+
+  void setNavigatorKey(GlobalKey<NavigatorState> key) {
+    _navigatorKey = key;
+  }
 
   Future<void> init() async {
     if (_initialized) return;
@@ -35,6 +74,7 @@ class NotificationService {
     );
     await _localNotifications.initialize(
       const InitializationSettings(android: androidSettings, iOS: iosSettings),
+      onDidReceiveNotificationResponse: _onLocalNotificationTap,
     );
 
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -48,60 +88,59 @@ class NotificationService {
     );
 
     final token = await messaging.getToken();
-    print('FCM Token: $token');
     if (token != null) {
       await _registerToken(token);
     }
 
-    messaging.onTokenRefresh.listen((newToken) {
-      print('FCM Token refreshed: $newToken');
-      _registerToken(newToken);
-    });
+    messaging.onTokenRefresh.listen(_registerToken);
 
-    FirebaseMessaging.onMessage.listen(_showLocalNotification);
+    FirebaseMessaging.onMessage.listen(_onForegroundMessage);
+
+    FirebaseMessaging.onMessageOpenedApp.listen(_onNotificationTap);
   }
 
   Future<void> _registerToken(String token) async {
     try {
       final worker = await ApiService.getWorkerData();
-      print('Worker data: $worker');
       if (worker != null && worker['id'] != null) {
-        print("Registering FCM token for worker ${worker['id']}");
         await ApiService.registerFcmToken(worker['id'].toString(), token);
-        print('FCM token registered successfully');
-      } else {
-        print('Cannot register FCM token: no worker data');
       }
-    } catch (e) {
-      print('FCM token registration error: $e');
-    }
+    } catch (_) {}
   }
 
-  Future<void> _showLocalNotification(RemoteMessage message) async {
-    final title = message.notification?.title ?? 'UFS Attend';
-    final body = message.notification?.body ?? '';
-
-    if (title.isEmpty && body.isEmpty) return;
-
-    const androidDetails = AndroidNotificationDetails(
-      'ufs_attend_channel',
-      'UFS Attend Notifications',
-      channelDescription: 'Push notifications from UFS Attend',
-      icon: 'notification_icon',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-
-    const iosDetails = DarwinNotificationDetails();
+  Future<void> _onForegroundMessage(RemoteMessage message) async {
+    final title = message.notification?.title ?? message.data['title'] ?? 'UFS Attend';
+    final body = message.notification?.body ?? message.data['body'] ?? '';
+    final payload = '${message.data['type'] ?? ''}|${message.data['referenceId'] ?? ''}';
 
     await _localNotifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title,
-      body,
+      body.isEmpty ? title : body,
       const NotificationDetails(
-        android: androidDetails,
-        iOS: iosDetails,
+        android: AndroidNotificationDetails(
+          'ufs_attend_channel',
+          'UFS Attend Notifications',
+          channelDescription: 'Push notifications from UFS Attend',
+          icon: 'notification_icon',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
       ),
+      payload: payload.isNotEmpty ? payload : null,
     );
+  }
+
+  void _onLocalNotificationTap(NotificationResponse response) {
+    _navigateHome();
+  }
+
+  void _onNotificationTap(RemoteMessage message) {
+    _navigateHome();
+  }
+
+  void _navigateHome() {
+    _navigatorKey?.currentState?.popUntil((route) => route.isFirst);
   }
 }

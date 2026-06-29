@@ -186,14 +186,16 @@ async function runNotificationCycle() {
   }
 }
 
-cron.schedule('30 10 * * *', () => runNotificationCycle());
-console.log('Scheduled: 10:30 AM notification check');
+if (!process.env.VERCEL) {
+  cron.schedule('30 10 * * *', () => runNotificationCycle());
+  console.log('Scheduled: 10:30 AM notification check');
 
-cron.schedule('0 13 * * *', () => runNotificationCycle());
-console.log('Scheduled: 1:00 PM notification check');
+  cron.schedule('0 13 * * *', () => runNotificationCycle());
+  console.log('Scheduled: 1:00 PM notification check');
 
-cron.schedule('0 18 * * *', () => runNotificationCycle());
-console.log('Scheduled: 6:00 PM notification check');
+  cron.schedule('0 18 * * *', () => runNotificationCycle());
+  console.log('Scheduled: 6:00 PM notification check');
+}
 
 async function sendScheduledNotifications() {
   try {
@@ -341,14 +343,16 @@ async function sendPunchOutReminders() {
   }
 }
 
-cron.schedule('* * * * *', () => sendScheduledNotifications());
-console.log('Scheduled: every-minute check for admin-scheduled notifications');
+if (!process.env.VERCEL) {
+  cron.schedule('* * * * *', () => sendScheduledNotifications());
+  console.log('Scheduled: every-minute check for admin-scheduled notifications');
 
-cron.schedule('* * * * *', () => sendPunchInReminders());
-console.log('Scheduled: every-minute check for punch-in reminders');
+  cron.schedule('* * * * *', () => sendPunchInReminders());
+  console.log('Scheduled: every-minute check for punch-in reminders');
 
-cron.schedule('* * * * *', () => sendPunchOutReminders());
-console.log('Scheduled: every-minute check for punch-out reminders');
+  cron.schedule('* * * * *', () => sendPunchOutReminders());
+  console.log('Scheduled: every-minute check for punch-out reminders');
+}
 
 async function autoReturnTransfers() {
   try {
@@ -400,8 +404,10 @@ async function resetCycledDonors() {
   }
 }
 
-cron.schedule('0 0 * * *', () => resetCycledDonors());
-console.log('Scheduled: midnight check for 30-day donor follow-up cycle');
+if (!process.env.VERCEL) {
+  cron.schedule('0 0 * * *', () => resetCycledDonors());
+  console.log('Scheduled: midnight check for 30-day donor follow-up cycle');
+}
 
 async function autoReportMissedSchedules() {
   try {
@@ -467,8 +473,10 @@ async function autoReportMissedSchedules() {
   }
 }
 
-cron.schedule('* * * * *', () => autoReportMissedSchedules());
-console.log('Scheduled: every-minute check for missed schedules (10 min overdue)');
+if (!process.env.VERCEL) {
+  cron.schedule('* * * * *', () => autoReportMissedSchedules());
+  console.log('Scheduled: every-minute check for missed schedules (10 min overdue)');
 
-cron.schedule('* * * * *', () => autoReturnTransfers());
-console.log('Scheduled: every-minute check for expired lead transfers');
+  cron.schedule('* * * * *', () => autoReturnTransfers());
+  console.log('Scheduled: every-minute check for expired lead transfers');
+}
