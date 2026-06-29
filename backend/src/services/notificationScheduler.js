@@ -480,3 +480,5 @@ if (!process.env.VERCEL) {
   cron.schedule('* * * * *', () => autoReturnTransfers());
   console.log('Scheduled: every-minute check for expired lead transfers');
 }
+
+export { runNotificationCycle };
