@@ -987,20 +987,17 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                               onClick={() => setExtraEditing(false)}>Cancel</button>
                           </>
                         ) : (
-                          <>
-                            <span style={{ fontWeight:600, fontSize:15 }}>₹{parseFloat(activeSalary?.extra_amount || 0).toLocaleString('en-IN')}</span>
-                            <button className="btn btn-icon btn-sm" title="Add extra amount"
-                              onClick={() => { setExtraEditing(true); setExtraVal(String(parseFloat(activeSalary?.extra_amount || 0))); }}>
-                              <Pencil width={13} />
-                            </button>
-                          </>
-                        )}
-                        <span style={{ marginLeft:'auto', fontWeight:600, fontSize:15 }}>
-                          Grand Total: <span style={{ color:'var(--sage)', fontSize:20, fontWeight:800 }}>₹{(Math.round(totalDue) + parseFloat(activeSalary?.extra_amount || 0) + (sundayBonus?.bonusAmount || 0) + (sundayBonus?.incentiveAKI || 0) + (sundayBonus?.incentiveMonthly || 0) - loanDeductionTotal).toLocaleString('en-IN')}</span>
-                        </span>
-                      </div>
+<>
+                             <span style={{ fontWeight:600, fontSize:15 }}>₹{parseFloat(activeSalary?.extra_amount || 0).toLocaleString('en-IN')}</span>
+                             <button className="btn btn-icon btn-sm" title="Add extra amount"
+                               onClick={() => { setExtraEditing(true); setExtraVal(String(parseFloat(activeSalary?.extra_amount || 0))); }}>
+                               <Pencil width={13} />
+                             </button>
+                           </>
+                         )}
+                       </div>
 
-                      {/* Visual flow */}
+                       {/* Visual flow */}
                       <div style={{ borderTop:'1px solid var(--line)', marginTop:16, paddingTop:16 }}>
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:16, flexWrap:'wrap' }}>
                         <Box num={availableDays} label={joinedThisMonth ? 'Available\nDays' : 'Days in\nMonth'} color="#5B6B4E" />
