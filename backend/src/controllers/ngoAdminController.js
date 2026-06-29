@@ -375,14 +375,16 @@ export const getDashboard = async (req, res) => {
     // Active donors: those who donated within the last 1 year
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    const { data: donorsWithRecentDonations } = await supabase
-      .from('fro_donor_logs')
-      .select('donor_id, fro_assignments!inner(ngo_id)')
-      .in('fro_assignments.ngo_id', ngoIds)
-      .or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition,accounts_status.eq.verified)')
-      .gte('created_at', oneYearAgo.toISOString());
+    const donorsWithRecentDonations = ngoIds.length > 0
+      ? (await supabase
+          .from('fro_donor_logs')
+          .select('donor_id, fro_assignments!inner(ngo_id)')
+          .in('fro_assignments.ngo_id', ngoIds)
+          .or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition,accounts_status.eq.verified)')
+          .gte('created_at', oneYearAgo.toISOString())).data || []
+      : [];
 
-    const activeDonorIds = new Set((donorsWithRecentDonations || []).map(d => d.donor_id).filter(Boolean));
+    const activeDonorIds = new Set(donorsWithRecentDonations.map(d => d.donor_id).filter(Boolean));
     let activeDonors = 0, inactiveDonors = 0;
     for (const a of allAssignments) {
       if (a.status === 'reassigned') continue;
